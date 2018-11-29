@@ -1,0 +1,13 @@
+Docker_Container_Logs
+node_modules
+package-lock.json
+.idea
+cli
+docker-compose.yaml
+network-config.yaml
+docker-compose.yml
+fabric-ca-orderer.dockerfile
+fabric-ca-peer.dockerfile
+fabric-ca-tools.dockerfile
+data
+
