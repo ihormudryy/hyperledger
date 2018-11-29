@@ -10,19 +10,19 @@
 # different organization names or the number of peers in each peer organization.
 #
 
-COMPOSE_PROJECT_NAME="net"
+export COMPOSE_PROJECT_NAME="net"
 
 # Name of the docker-compose network
-NETWORK="fabric-ca"
+export NETWORK="fabric-ca"
 
 # Names of the orderer organizations
-ORDERER_ORGS="here"
+export ORDERER_ORGS="here"
 
 # Names of the peer organizations
-PEER_ORGS="consumer provider"
+export PEER_ORGS="consumer provider"
 
 # Number of peers in each peer organization
-NUM_PEERS=2
+export NUM_PEERS=2
 
 #Blockchain explorer envs
 export EXPLORER_DB_IP="blockchain-explorer-db"

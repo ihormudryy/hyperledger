@@ -10,8 +10,9 @@ SDIR=$(dirname "$0")
 source $SDIR/scripts/env.sh
 
 log "Stopping docker containers ..."
-docker-compose -f ${SDIR}/docker/docker-compose.yaml down
+#docker-compose -f ${SDIR}/docker/docker-compose.yaml down
 # Stop chaincode containers and images as well
 docker rm -f $(docker ps -a --format "{{.Names}}")
-#docker rmi $(docker images | awk '$1 ~ /dev-peer/ { print $3 }')
+rm -rf data 
+rm -rf docker 
 log "Docker containers have been stopped"

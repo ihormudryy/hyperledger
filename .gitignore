@@ -10,4 +10,4 @@ fabric-ca-orderer.dockerfile
 fabric-ca-peer.dockerfile
 fabric-ca-tools.dockerfile
 data
-
+docker

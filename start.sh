@@ -27,9 +27,9 @@ cd ${SDIR}
 dockerContainers=$(docker ps -a | awk '$2~/hyperledger/ {print $1}')
 if [ "$dockerContainers" != "" ]; then
    log "Deleting existing docker containers ..."
-   #docker rm -f $dockerContainers > /dev/null
-   docker network prune
    docker rm -f $(docker ps -a --format "{{.Names}}")
+   docker network prune
+   docker volume prune
 fi
 
 # Remove chaincode docker images
@@ -59,6 +59,10 @@ dowait "the 'setup' container to finish registering identities, creating the gen
 
 # Wait for the run container to start and then tails it's summary log
 dowait "the docker 'run' container to start" 60 ${SDIR}/${SETUP_LOGFILE} ${SDIR}/${RUN_SUMFILE}
+
+dowait "Starting Hyperledger Explorer ..." 30 ./scripts/start-explorer.sh ${NETWORK}
+docker ps  -a
+
 tail -f ${SDIR}/${RUN_SUMFILE}
 TAIL_PID=$!
 

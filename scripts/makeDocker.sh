@@ -26,7 +26,7 @@ SCRIPTS_DIR="./../scripts"
 DATA_DIR="./../data"
 
 # Set samples directory relative to this script
-SAMPLES_DIR="./../chaincode/"
+SAMPLES_DIR="./../chaincodes/"
 
 source $SDIR/env.sh
 
@@ -43,7 +43,7 @@ function main {
    writeSetupFabric
    writeStartFabric
    writeRunFabric
-   writeBlockchainExplorer
+   #writeBlockchainExplorer
    writeHyperledgerComposer
    } > $DOCKER_DIR/docker-compose.yaml
    log "Created docker-compose.yaml"
@@ -81,7 +81,6 @@ function createDockerFile {
       echo "RUN curl -o /tmp/fabric-ca-client.tar.gz $URL && tar -xzvf /tmp/fabric-ca-client.tar.gz -C /tmp && cp /tmp/bin/fabric-ca-client /usr/local/bin"
       echo 'RUN chmod +x /usr/local/bin/fabric-ca-client'
       echo 'ARG FABRIC_CA_DYNAMIC_LINK=false'
-      # libraries needed when image is built dynamically
       echo 'RUN if [ "\$FABRIC_CA_DYNAMIC_LINK" = "true" ]; then apt-get install -y libltdl-dev; fi'
    } > $DOCKER_DIR/fabric-ca-${1}.dockerfile
 }
@@ -102,25 +101,25 @@ function writeBlockchainExplorerService {
             \"version\": \"1.0\",
             \"clients\": {" > ${DOCKER_DIR}/config.json
    
-   #FIRST=true
-   #for ORG in $PEER_ORGS; do
-   #   if [ $FIRST != true ]; then
-   #      echo "," >> ${DOCKER_DIR}/config.json
-   #   else
-   #      FIRST=false
-   #   fi
-   #   echo "\"${ORG}\": {
-   #      \"tlsEnable\": true,
-   #      \"organization\": \"${ORG}MSP\",
-   #      \"channel\": \"${CHANNEL_NAME}\",
-   #      \"credentialStore\": {
-   #         \"path\": \"/data\",
-   #         \"cryptoStore\": {
-   #            \"path\": \"/data\"
-   #         }
-   #      }
-   #   }" >> ${DOCKER_DIR}/config.json*/
-   #done
+   FIRST=true
+   for ORG in $PEER_ORGS; do
+      if [ $FIRST != true ]; then
+         echo "," >> ${DOCKER_DIR}/config.json
+      else
+         FIRST=false
+      fi
+      echo "\"${ORG}\": {
+         \"tlsEnable\": true,
+         \"organization\": \"${ORG}\",
+         \"channel\": \"${CHANNEL_NAME}\",
+         \"credentialStore\": {
+            \"path\": \"./tmp/fabric-client-kvs_${ORG}\",
+            \"cryptoStore\": {
+               \"path\": \"./tmp/fabric-client-kvs_${ORG}\"
+            }
+         }
+      }" >> ${DOCKER_DIR}/config.json
+   done
    echo "},
          \"channels\": {
          \"${CHANNEL_NAME}\": {
@@ -149,7 +148,7 @@ function writeBlockchainExplorerService {
                }
             }
          }
-      },
+      }},
    \"orderers\": {
       \"${CA_HOST}\": {
          \"url\": \"grpcs://${CA_HOST}:7050\"
@@ -157,9 +156,8 @@ function writeBlockchainExplorerService {
    },
    \"organizations\": {
       \"${ORDERER_ORGS}\": {
-         \"name\": \"${ORDERER_ORGS}\",
          \"mspid\": \"${ORDERER_ORGS}MSP\",
-         \"fullpath\": true,
+         \"fullpath\": false,
          \"tlsEnable\": \"true\",
          \"adminPrivateKey\": {
             \"path\": \"/data/orgs/${ORDERER_ORGS}/admin/msp/keystore\"
@@ -178,7 +176,7 @@ function writeBlockchainExplorerService {
       echo "\"${ORG}\": {
             \"name\": \"${ORG}\",
             \"mspid\": \"${ORG}MSP\",
-            \"fullpath\": true,
+            \"fullpath\": false,
             \"tlsEnable\": \"true\"," >> ${DOCKER_DIR}/config.json
       echo "\"adminPrivateKey\": {
                \"path\": \"/data/orgs/${ORG}/admin/msp/keystore\"
@@ -215,7 +213,7 @@ function writeBlockchainExplorerService {
         COUNT=$((COUNT+1))
       done
    done
-   echo "}}}}}" >> ${DOCKER_DIR}/config.json
+   echo "}}}}" >> ${DOCKER_DIR}/config.json
 }
 
 # Write services for the intermediate fabric CA servers
@@ -271,7 +269,7 @@ function writeHyperledgerComposer {
     container_name: blockchain-composer
     image: hyperledger/composer-playground
     ports:
-      - 8081:8080
+      - 8080:8080
     networks:
       - $NETWORK
     depends_on:
@@ -292,7 +290,7 @@ function writeBlockchainExplorer {
       - ./config.json:/opt/explorer/app/platform/fabric/config.json
       - ${DATA_DIR}:/tmp/crypto
     ports:
-      - 8080:8080
+      - 8000:8080
     networks:
       - $NETWORK
     depends_on:
@@ -314,6 +312,9 @@ function writeBlockchainExplorer {
       - DATABASE_DATABASE=$EXPLORER_DB_NAME
       - DATABASE_USERNAME=$EXPLORER_DB_USER
       - DATABASE_PASSWORD=$EXPLORER_DB_PWD
+    command: /bin/bash /opt/createdb.sh
+    volumes:
+      - ${SCRIPTS_DIR}:/scripts
     ports:
       - 5432:5432
     networks:
@@ -323,7 +324,7 @@ function writeBlockchainExplorer {
 }
 
 # Write a service to run a fabric test including creating a channel,
-# installing chaincode, invoking and querying
+# installing chaincodes, invoking and querying
 function writeRunFabric {
    echo "  run:
     container_name: run

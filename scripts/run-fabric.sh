@@ -12,6 +12,7 @@ source $(dirname "$0")/env.sh
 CHAINCODE_NAME=mycc
 CHAINCODE_PATH="abac/go"
 CHAINCODE_VERSION="1.0"
+LOG_FILE_NAME=/data/logs/chaincode-log.txt
 
 function main {
 
@@ -155,15 +156,15 @@ function chaincodeQuery {
    # Continue to poll until we get a successful response or reach QUERY_TIMEOUT
    while test "$(($(date +%s)-starttime))" -lt "$QUERY_TIMEOUT"; do
       sleep 1
-      peer chaincode query -C $CHANNEL_NAME -n ${CHAINCODE_NAME} -c '{"Args":["query","a"]}' >& log.txt
-      VALUE=$(cat log.txt | awk '/Query Result/ {print $NF}')
+      peer chaincode query -C $CHANNEL_NAME -n ${CHAINCODE_NAME} -c '{"Args":["query","a"]}' >& LOG_FILE_NAME
+      VALUE=$(cat ${LOG_FILE_NAME} | awk '/Query Result/ {print $NF}')
       if [ $? -eq 0 -a "$VALUE" = "$1" ]; then
          logr "Query of channel '$CHANNEL_NAME' on peer '$PEER_HOST' was successful"
          set -e
          return 0
       else
          # removed the string "Query Result" from peer chaincode query command result, as a result, have to support both options until the change is merged.
-         VALUE=$(cat log.txt | egrep '^[0-9]+$')
+         VALUE=$(cat ${LOG_FILE_NAME} | egrep '^[0-9]+$')
          if [ $? -eq 0 -a "$VALUE" = "$1" ]; then
             logr "Query of channel '$CHANNEL_NAME' on peer '$PEER_HOST' was successful"
             set -e
@@ -172,8 +173,8 @@ function chaincodeQuery {
       fi
       echo -n "."
    done
-   cat log.txt
-   cat log.txt >> $RUN_SUMFILE
+   cat ${LOG_FILE_NAME}
+   cat ${LOG_FILE_NAME} >> $RUN_SUMFILE
    fatalr "Failed to query channel '$CHANNEL_NAME' on peer '$PEER_HOST'; expected value was $1 and found $VALUE"
 }
 
@@ -184,9 +185,9 @@ function queryAsRevokedUser {
    # Continue to poll until we get an expected response or reach QUERY_TIMEOUT
    while test "$(($(date +%s)-starttime))" -lt "$QUERY_TIMEOUT"; do
       sleep 1
-      peer chaincode query -C $CHANNEL_NAME -n ${CHAINCODE_NAME} -c '{"Args":["query","a"]}' >& log.txt
+      peer chaincode query -C $CHANNEL_NAME -n ${CHAINCODE_NAME} -c '{"Args":["query","a"]}' >& ${LOG_FILE_NAME}
       if [ $? -ne 0 ]; then
-        err=$(cat log.txt | grep "access denied")
+        err=$(cat ${LOG_FILE_NAME} | grep "access denied")
         if [ "$err" != "" ]; then
            logr "Expected error occurred when the revoked user '$USER_NAME' queried the chaincode in the channel '$CHANNEL_NAME'"
            set -e
@@ -196,8 +197,8 @@ function queryAsRevokedUser {
       echo -n "."
    done
    set -e 
-   cat log.txt
-   cat log.txt >> $RUN_SUMFILE
+   cat ${LOG_FILE_NAME}
+   cat ${LOG_FILE_NAME} >> $RUN_SUMFILE
    return 1
 }
 
