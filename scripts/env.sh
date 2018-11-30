@@ -14,6 +14,7 @@ export COMPOSE_PROJECT_NAME="net"
 
 # Name of the docker-compose network
 export NETWORK="fabric-ca"
+export SUBNET="192.168.10.0/24"
 
 # Names of the orderer organizations
 export ORDERER_ORGS="here"

@@ -104,21 +104,21 @@ function writeBlockchainExplorerService {
    FIRST=true
    for ORG in $PEER_ORGS; do
       if [ $FIRST != true ]; then
-         echo "," >> ${DOCKER_DIR}/config.json
+         #echo "," >> ${DOCKER_DIR}/config.json
+         echo "\"${ORG}\": {
+            \"tlsEnable\": true,
+            \"organization\": \"${ORG}\",
+            \"channel\": \"${CHANNEL_NAME}\",
+            \"credentialStore\": {
+               \"path\": \"./tmp/fabric-client-kvs_${ORG}\",
+               \"cryptoStore\": {
+                  \"path\": \"./tmp/fabric-client-kvs_${ORG}\"
+               }
+            }
+         }" >> ${DOCKER_DIR}/config.json
       else
          FIRST=false
       fi
-      echo "\"${ORG}\": {
-         \"tlsEnable\": true,
-         \"organization\": \"${ORG}\",
-         \"channel\": \"${CHANNEL_NAME}\",
-         \"credentialStore\": {
-            \"path\": \"./tmp/fabric-client-kvs_${ORG}\",
-            \"cryptoStore\": {
-               \"path\": \"./tmp/fabric-client-kvs_${ORG}\"
-            }
-         }
-      }" >> ${DOCKER_DIR}/config.json
    done
    echo "},
          \"channels\": {
@@ -142,9 +142,9 @@ function writeBlockchainExplorerService {
          \"connection\": {
             \"timeout\": {
                \"peer\": {
-                  \"endorser\": \"6000\",
-                  \"eventHub\": \"6000\",
-                  \"eventReg\": \"6000\"
+                  \"endorser\": \"60000\",
+                  \"eventHub\": \"60000\",
+                  \"eventReg\": \"60000\"
                }
             }
          }
@@ -202,7 +202,6 @@ function writeBlockchainExplorerService {
          echo "\"${PEER_HOST}\": {
                   \"url\": \"grpcs://${PEER_HOST}:7051\",
                   \"eventUrl\": \"grpcs://${PEER_HOST}:7053\",
-                  \"server-hostname\": \"${PEER_HOST}\",
                   \"grpcOptions\": {
                      \"ssl-target-name-override\": \"${PEER_HOST}\"
                   },
@@ -282,7 +281,7 @@ function writeBlockchainExplorer {
     container_name: blockchain-explorer
     image: hyperledger/explorer
     environment:
-      - DATABASE_HOST=blockchain-explorer-db
+      - DATABASE_HOST=192.168.10.11
       - DATABASE_USERNAME=$EXPLORER_DB_USER
       - DATABASE_PASSWORD=$EXPLORER_DB_PWD
     volumes:
@@ -318,7 +317,8 @@ function writeBlockchainExplorer {
     ports:
       - 5432:5432
     networks:
-      - $NETWORK
+      $NETWORK:
+         ipv4_address: 192.168.10.11
     depends_on:
       - setup"
 }
@@ -499,6 +499,10 @@ function writeHeader {
    
 networks:
   $NETWORK:
+    ipam:
+      driver: default
+      config:
+        - subnet: ${SUBNET}
 
 services:
 "

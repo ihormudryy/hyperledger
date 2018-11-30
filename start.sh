@@ -30,6 +30,7 @@ if [ "$dockerContainers" != "" ]; then
    docker rm -f $(docker ps -a --format "{{.Names}}")
    docker network prune
    docker volume prune
+   docker network create --subnet=$subnet $NETWORK
 fi
 
 # Remove chaincode docker images
@@ -60,16 +61,15 @@ dowait "the 'setup' container to finish registering identities, creating the gen
 # Wait for the run container to start and then tails it's summary log
 dowait "the docker 'run' container to start" 60 ${SDIR}/${SETUP_LOGFILE} ${SDIR}/${RUN_SUMFILE}
 
-dowait "Starting Hyperledger Explorer ..." 30 ./scripts/start-explorer.sh ${NETWORK}
-docker ps  -a
-
-tail -f ${SDIR}/${RUN_SUMFILE}
+tail -f ${SDIR}/${RUN_SUMFILE}&
 TAIL_PID=$!
 
 # Wait for the run container to complete
 while true; do
    if [ -f ${SDIR}/${RUN_SUCCESS_FILE} ]; then
       kill -9 $TAIL_PID
+      bash ./scripts/start-explorer.sh
+      docker ps  -a
       exit 0
    elif [ -f ${SDIR}/${RUN_FAIL_FILE} ]; then
       kill -9 $TAIL_PID

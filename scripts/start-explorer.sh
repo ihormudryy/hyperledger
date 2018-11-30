@@ -57,7 +57,7 @@ function existsImage(){
 # Configure settings of HYPERLEDGER EXPLORER
 function config(){
     # BEGIN: GLOBAL VARIABLES OF THE SCRIPT
-    defaultFabricName="${COMPOSE_PROJECT_NAME}_${NETWORK}"
+    export defaultFabricName="${COMPOSE_PROJECT_NAME}_${NETWORK}"
     if [ -z "$1" ]; then
         echo "No custom Hyperledger Network configuration supplied. Using default network name: $defaultFabricName"
         fabricBlockchainNetworkName=$defaultFabricName
@@ -93,12 +93,12 @@ function config(){
     # database container configuration
     fabric_explorer_db_tag="hyperledger/explorer-db"
     fabric_explorer_db_name="hyperledger-explorer-db"
-    db_ip=192.168.10.11
+    db_ip=192.168.10.250
 
     # fabric explorer configuratio
     fabric_explorer_tag="hyperledger/explorer"
     fabric_explorer_name="hyperledger-explorer"
-    explorer_ip=192.168.10.12
+    explorer_ip=192.168.10.249
     # END: GLOBAL VARIABLES OF THE SCRIPT
 }
 
@@ -135,14 +135,17 @@ function deploy_run_database(){
     # By default, since docker is used, there are no users created so default available user is
     # postgres/password
     echo "Deploying Database (POSTGRES) container at $db_ip"
+    set -ex
     docker run \
         -d \
+        -p 5432:5432 \
         --name $fabric_explorer_db_name \
         --net $docker_network_name --ip $db_ip \
         -e DATABASE_DATABASE=$explorer_db_name \
         -e DATABASE_USERNAME=$explorer_db_user \
         -e DATABASE_PASSWORD=$explorer_db_pwd \
         $fabric_explorer_db_tag
+    set +ex
 }
 
 function deploy_load_database(){
@@ -182,6 +185,7 @@ function deploy_run_explorer(){
     stop_explorer
 
     echo "Deploying Hyperledger Fabric Explorer container at $explorer_ip"
+    set -ex
     docker run \
         -d \
         --name $fabric_explorer_name \
@@ -193,6 +197,7 @@ function deploy_run_explorer(){
         -v $network_crypto_base_path:/data \
         -p 8000:8080 \
         $fabric_explorer_tag
+    set +ex
 }
 
 function connect_to_network(){
@@ -207,7 +212,7 @@ function deploy(){
 
     deploy_run_database
     deploy_load_database
-
+    
     deploy_run_explorer
 
     if [ -n "$2" ]; then
