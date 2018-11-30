@@ -43,8 +43,8 @@ function main {
    writeSetupFabric
    writeStartFabric
    writeRunFabric
-   #writeBlockchainExplorer
-   writeHyperledgerComposer
+   writeBlockchainExplorer
+   #writeHyperledgerComposer
    } > $DOCKER_DIR/docker-compose.yaml
    log "Created docker-compose.yaml"
    writeBlockchainExplorerService

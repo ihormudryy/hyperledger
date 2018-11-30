@@ -9,10 +9,10 @@ set -xe
 
 source $(dirname "$0")/env.sh
 
-CHAINCODE_NAME=mycc
+CHAINCODE_NAME="abac"
 CHAINCODE_PATH="abac/go"
 CHAINCODE_VERSION="1.0"
-LOG_FILE_NAME=/data/logs/chaincode-${CHAINCODE_PATH}-install.log
+LOG_FILE_NAME=/data/logs/chaincode-${CHAINCODE_NAME}-install.log
 
 function main {
 
@@ -156,7 +156,7 @@ function chaincodeQuery {
    # Continue to poll until we get a successful response or reach QUERY_TIMEOUT
    while test "$(($(date +%s)-starttime))" -lt "$QUERY_TIMEOUT"; do
       sleep 1
-      peer chaincode query -C $CHANNEL_NAME -n ${CHAINCODE_NAME} -c '{"Args":["query","a"]}' >& $LOG_FILE_NAME
+      peer chaincode query -C $CHANNEL_NAME -n ${CHAINCODE_NAME} -c '{"Args":["query","a"]}' >& ${LOG_FILE_NAME}
       VALUE=$(cat ${LOG_FILE_NAME} | awk '/Query Result/ {print $NF}')
       if [ $? -eq 0 -a "$VALUE" = "$1" ]; then
          logr "Query of channel '$CHANNEL_NAME' on peer '$PEER_HOST' was successful"
@@ -276,8 +276,6 @@ function finish {
    if [ "$done" = true ]; then
       logr "See $RUN_LOGFILE for more details"
       touch /$RUN_SUCCESS_FILE
-      logr "Exiting..."
-      exit 0
    else
       logr "Tests did not complete successfully; see $RUN_LOGFILE for more details"
       touch /$RUN_FAIL_FILE

@@ -58,7 +58,7 @@ CHANNEL_TX_FILE=/$DATA/channel.tx
 CHANNEL_NAME=mychannel
 
 # Query timeout in seconds
-QUERY_TIMEOUT=15
+QUERY_TIMEOUT=30
 
 # Setup timeout in seconds (for setup container to complete)
 SETUP_TIMEOUT=120
