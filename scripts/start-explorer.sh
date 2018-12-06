@@ -193,6 +193,7 @@ function deploy_run_explorer(){
         -e DATABASE_HOST=$db_ip \
         -e DATABASE_USERNAME=$explorer_db_user \
         -e DATABASE_PASSWD=$explorer_db_pwd \
+        -v /home/stalker/hyperledger/blockchain-explorer:/opt/explorer \
         -v $network_config_file:/opt/explorer/app/platform/fabric/config.json \
         -v $network_crypto_base_path:/data \
         -p 8000:8080 \

@@ -5,7 +5,7 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
-set -e
+set -ex
 
 # Initialize the root CA
 fabric-ca-server init -b $BOOTSTRAP_USER_PASS

@@ -43,8 +43,8 @@ function main {
    writeSetupFabric
    writeStartFabric
    writeRunFabric
-   writeBlockchainExplorer
-   #writeHyperledgerComposer
+   #writeBlockchainExplorer
+   writeHyperledgerComposer
    } > $DOCKER_DIR/docker-compose.yaml
    log "Created docker-compose.yaml"
    writeBlockchainExplorerService
@@ -58,15 +58,15 @@ function createDockerFiles {
       PEER_BUILD="image: hyperledger/fabric-ca-peer"
       TOOLS_BUILD="image: hyperledger/fabric-ca-tools"
    else
-      createDockerFile orderer
+      createDockerFile orderer "7050"
       ORDERER_BUILD="build:
       context: .
       dockerfile: fabric-ca-orderer.dockerfile"
-      createDockerFile peer
+      createDockerFile peer "7051"
       PEER_BUILD="build:
       context: .
       dockerfile: fabric-ca-peer.dockerfile"
-      createDockerFile tools
+      createDockerFile tools "8888"
       TOOLS_BUILD="build:
       context: .
       dockerfile: fabric-ca-tools.dockerfile"
@@ -81,6 +81,7 @@ function createDockerFile {
       echo "RUN curl -o /tmp/fabric-ca-client.tar.gz $URL && tar -xzvf /tmp/fabric-ca-client.tar.gz -C /tmp && cp /tmp/bin/fabric-ca-client /usr/local/bin"
       echo 'RUN chmod +x /usr/local/bin/fabric-ca-client'
       echo 'ARG FABRIC_CA_DYNAMIC_LINK=false'
+      echo "EXPOSE ${2}"
       echo 'RUN if [ "\$FABRIC_CA_DYNAMIC_LINK" = "true" ]; then apt-get install -y libltdl-dev; fi'
    } > $DOCKER_DIR/fabric-ca-${1}.dockerfile
 }
@@ -130,11 +131,12 @@ function writeBlockchainExplorerService {
       while [[ "$COUNT" -le $NUM_PEERS ]]; do
          initPeerVars $ORG $COUNT
          if [ $FIRST != true ]; then
-            echo "," >> ${DOCKER_DIR}/config.json
+            #echo "," >> ${DOCKER_DIR}/config.json
+            echo
          else
+            echo "\"${PEER_HOST}\": {}" >> ${DOCKER_DIR}/config.json
             FIRST=false
          fi
-         echo "\"${PEER_HOST}\": {}" >> ${DOCKER_DIR}/config.json
          COUNT=$((COUNT+1))
       done
    done
@@ -150,15 +152,14 @@ function writeBlockchainExplorerService {
          }
       }},
    \"orderers\": {
-      \"${CA_HOST}\": {
-         \"url\": \"grpcs://${CA_HOST}:7050\"
+      \"${ORDERER_HOST}\": {
+         \"url\": \"grpcs://${ORDERER_HOST}:7050\"
       }
    },
    \"organizations\": {
       \"${ORDERER_ORGS}\": {
          \"mspid\": \"${ORDERER_ORGS}MSP\",
          \"fullpath\": false,
-         \"tlsEnable\": \"true\",
          \"adminPrivateKey\": {
             \"path\": \"/data/orgs/${ORDERER_ORGS}/admin/msp/keystore\"
          },
@@ -177,7 +178,7 @@ function writeBlockchainExplorerService {
             \"name\": \"${ORG}\",
             \"mspid\": \"${ORG}MSP\",
             \"fullpath\": false,
-            \"tlsEnable\": \"true\"," >> ${DOCKER_DIR}/config.json
+            \"tlsEnable\": true," >> ${DOCKER_DIR}/config.json
       echo "\"adminPrivateKey\": {
                \"path\": \"/data/orgs/${ORG}/admin/msp/keystore\"
             },
@@ -206,7 +207,7 @@ function writeBlockchainExplorerService {
                      \"ssl-target-name-override\": \"${PEER_HOST}\"
                   },
                   \"tlsCACerts\": {
-                     \"path\": \"/data/tls/${PEER_HOST}-client.crt\"
+                     \"path\": \"/data/${ORG}-ca-chain.pem\"
                   }
          }" >> ${DOCKER_DIR}/config.json
         COUNT=$((COUNT+1))
@@ -286,6 +287,7 @@ function writeBlockchainExplorer {
       - DATABASE_PASSWORD=$EXPLORER_DB_PWD
     volumes:
       - ${DATA_DIR}:/$DATA
+      - ./../../blockchain-explorer:/opt/explorer
       - ./config.json:/opt/explorer/app/platform/fabric/config.json
       - ${DATA_DIR}:/tmp/crypto
     ports:
@@ -468,7 +470,7 @@ function writePeer {
       - CORE_PEER_TLS_CERT_FILE=$MYHOME/tls/server.crt
       - CORE_PEER_TLS_KEY_FILE=$MYHOME/tls/server.key
       - CORE_PEER_TLS_ROOTCERT_FILE=$CA_CHAINFILE
-      - CORE_PEER_TLS_CLIENTAUTHREQUIRED=true
+      - CORE_PEER_TLS_CLIENTAUTHREQUIRED=false
       - CORE_PEER_TLS_CLIENTROOTCAS_FILES=$CA_CHAINFILE
       - CORE_PEER_TLS_CLIENTCERT_FILE=/$DATA/tls/$PEER_NAME-client.crt
       - CORE_PEER_TLS_CLIENTKEY_FILE=/$DATA/tls/$PEER_NAME-client.key

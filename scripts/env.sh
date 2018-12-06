@@ -246,6 +246,7 @@ function initPeerVars {
 
 # Switch to the current org's admin identity.  Enroll if not previously enrolled.
 function switchToAdminIdentity {
+   set -ex
    if [ ! -d $ORG_ADMIN_HOME ]; then
       dowait "$CA_NAME to start" 60 $CA_LOGFILE $CA_CHAINFILE
       log "Enrolling admin '$ADMIN_NAME' with $CA_HOST ..."
@@ -261,10 +262,12 @@ function switchToAdminIdentity {
       fi
    fi
    export CORE_PEER_MSPCONFIGPATH=$ORG_ADMIN_HOME/msp
+   set +ex
 }
 
 # Switch to the current org's user identity.  Enroll if not previously enrolled.
 function switchToUserIdentity {
+   set -ex
    export FABRIC_CA_CLIENT_HOME=/etc/hyperledger/fabric/orgs/$ORG/user
    export CORE_PEER_MSPCONFIGPATH=$FABRIC_CA_CLIENT_HOME/msp
    if [ ! -d $FABRIC_CA_CLIENT_HOME ]; then
@@ -279,6 +282,7 @@ function switchToUserIdentity {
          cp $ORG_ADMIN_HOME/msp/signcerts/* $ACDIR
       fi
    fi
+   set +ex
 }
 
 # Revokes the fabric user

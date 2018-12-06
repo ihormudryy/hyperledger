@@ -8,7 +8,7 @@
 source $(dirname "$0")/env.sh
 initOrgVars $ORG
 
-set -e
+set -ex
 
 # Wait for the root CA to start
 waitPort "root CA to start" 60 $ROOT_CA_LOGFILE $ROOT_CA_HOST 7054
