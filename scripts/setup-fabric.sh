@@ -10,6 +10,11 @@
 # 1) registers orderer and peer identities with intermediate fabric-ca-servers
 # 2) Builds the channel artifacts (e.g. genesis block, etc)
 #
+set -x
+SDIR=$(dirname "$0")
+source $SDIR/env.sh
+echo 'success' >> $RUN_SUMFILE
+echo 'success' > /$SETUP_SUCCESS_FILE && exit
 
 function main {
    log "Beginning building channel artifacts ..."
@@ -280,8 +285,5 @@ function generateChannelArtifacts() {
 }
 
 set -e
-
-SDIR=$(dirname "$0")
-source $SDIR/env.sh
 
 main

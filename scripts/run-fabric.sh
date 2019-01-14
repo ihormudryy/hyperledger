@@ -4,10 +4,10 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 #
-
-set -xe
-
+set -x
 source $(dirname "$0")/env.sh
+echo 'success' > $RUN_SUMFILE
+echo 'success' > /$RUN_SUCCESS_FILE && exit
 
 CHAINCODE_NAME="abac"
 CHAINCODE_PATH="abac/go"

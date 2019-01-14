@@ -11,7 +11,7 @@
 # By default, this test is run with the latest released docker images.
 #
 # To run against a specific fabric/fabric-ca version:
-#    export FABRIC_TAG=1.3.0
+#    export FABRIC_TAG=1.4.0
 #
 # To run with locally built images:
 #    export FABRIC_TAG=local
@@ -49,7 +49,7 @@ fi
 mkdir -p ${DDIR}/logs
 
 # Create the docker-compose file
-${SDIR}/scripts/makeDocker.sh
+#${SDIR}/scripts/makeDocker.sh
 
 # Create the docker containers
 log "Creating docker containers ..."
@@ -61,18 +61,18 @@ dowait "the 'setup' container to finish registering identities, creating the gen
 # Wait for the run container to start and then tails it's summary log
 dowait "the docker 'run' container to start" 60 ${SDIR}/${SETUP_LOGFILE} ${SDIR}/${RUN_SUMFILE}
 
-tail -f ${SDIR}/${RUN_SUMFILE}&
-TAIL_PID=$!
+#tail -f ${SDIR}/${RUN_SUMFILE}&
+#TAIL_PID=$!
 
 # Wait for the run container to complete
 while true; do
    if [ -f ${SDIR}/${RUN_SUCCESS_FILE} ]; then
-      kill -9 $TAIL_PID
-      bash ./scripts/start-explorer.sh
-      docker ps  -a
+      #kill -9 $TAIL_PID
+      #bash ./scripts/start-explorer.sh
+      docker ps -a
       exit 0
    elif [ -f ${SDIR}/${RUN_FAIL_FILE} ]; then
-      kill -9 $TAIL_PID
+      ##kill -9 $TAIL_PID
       exit 1
    else
       sleep 1

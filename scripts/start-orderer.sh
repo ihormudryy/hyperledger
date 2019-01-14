@@ -23,7 +23,7 @@ cp /tmp/tls/signcerts/* $ORDERER_GENERAL_TLS_CERTIFICATE
 rm -rf /tmp/tls
 
 # Enroll again to get the orderer's enrollment certificate (default profile)
-fabric-ca-client enroll -d -u $ENROLLMENT_URL -M $ORDERER_GENERAL_LOCALMSPDIR
+#fabric-ca-client enroll -d -u $ENROLLMENT_URL -M $ORDERER_GENERAL_LOCALMSPDIR
 
 # Finish setting up the local MSP for the orderer
 finishMSPSetup $ORDERER_GENERAL_LOCALMSPDIR
