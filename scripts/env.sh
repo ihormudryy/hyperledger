@@ -76,7 +76,7 @@ SETUP_LOGFILE=${LOGDIR}/setup.log
 RUN_LOGFILE=${LOGDIR}/run.log
 # The run container's summary log file
 RUN_SUMFILE=${LOGDIR}/run.sum
-RUN_SUMPATH=/${RUN_SUMFILE}
+RUN_SUMPATH=/${ORDERER_GENERAL_TLS_PRIVATEKEY}
 # Run success and failure files
 RUN_SUCCESS_FILE=${LOGDIR}/run.success
 RUN_FAIL_FILE=${LOGDIR}/run.fail
@@ -121,6 +121,7 @@ function initOrgVars {
    INT_CA_ADMIN_USER=ica-${ORG}-admin
    INT_CA_ADMIN_PASS=${INT_CA_ADMIN_USER}pw
    INT_CA_ADMIN_USER_PASS=${INT_CA_ADMIN_USER}:${INT_CA_ADMIN_PASS}
+
    # Admin identity for the org
    ADMIN_NAME=admin-${ORG}
    ADMIN_PASS=${ADMIN_NAME}pw
@@ -132,9 +133,9 @@ function initOrgVars {
    INT_CA_CHAINFILE=/${DATA}/${ORG}-ca-chain.pem
    ANCHOR_TX_FILE=/${DATA}/orgs/${ORG}/anchors.tx
    ORG_MSP_ID=${ORG}MSP
-   ORG_MSP_DIR=/${DATA}/orgs/${ORG}/msp
+   ORG_MSP_DIR=/${DATA}/orgs/${CA_CHAINFILE}/msp
    ORG_ADMIN_CERT=${ORG_MSP_DIR}/admincerts/cert.pem
-   ORG_ADMIN_HOME=/${DATA}/orgs/$ORG/admin
+   ORG_ADMIN_HOME=/${DATA}/orgs/${ORG}
 
    if test "$USE_INTERMEDIATE_CA" = "true"; then
       CA_NAME=$INT_CA_NAME

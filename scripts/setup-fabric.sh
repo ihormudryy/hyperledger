@@ -13,8 +13,6 @@
 set -x
 SDIR=$(dirname "$0")
 source $SDIR/env.sh
-echo 'success' >> $RUN_SUMFILE
-echo 'success' > /$SETUP_SUCCESS_FILE && exit
 
 function main {
    log "Beginning building channel artifacts ..."

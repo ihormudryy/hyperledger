@@ -17,7 +17,7 @@
 #    export FABRIC_TAG=local
 
 set -e
-
+export FABRIC_TAG=1.4.0
 SDIR=$(dirname "$0")
 source ${SDIR}/scripts/env.sh
 
@@ -47,32 +47,32 @@ if [ -d ${DDIR} ]; then
    rm -rf ${SDIR}/data
 fi
 mkdir -p ${DDIR}/logs
-
+mkdir -p ${DDIR}/tls
 # Create the docker-compose file
 #${SDIR}/scripts/makeDocker.sh
 
 # Create the docker containers
 log "Creating docker containers ..."
 docker-compose -f ${SDIR}/docker/docker-compose.yaml up -d
-
+exit 
 # Wait for the setup container to complete
 dowait "the 'setup' container to finish registering identities, creating the genesis block and other artifacts" 90 $SDIR/$SETUP_LOGFILE $SDIR/$SETUP_SUCCESS_FILE
 
 # Wait for the run container to start and then tails it's summary log
 dowait "the docker 'run' container to start" 60 ${SDIR}/${SETUP_LOGFILE} ${SDIR}/${RUN_SUMFILE}
 
-#tail -f ${SDIR}/${RUN_SUMFILE}&
-#TAIL_PID=$!
+tail -f ${SDIR}/${RUN_SUMFILE}&
+TAIL_PID=$!
 
 # Wait for the run container to complete
 while true; do
    if [ -f ${SDIR}/${RUN_SUCCESS_FILE} ]; then
-      #kill -9 $TAIL_PID
-      #bash ./scripts/start-explorer.sh
+      kill -9 $TAIL_PID
+      bash ./scripts/start-explorer.sh
       docker ps -a
       exit 0
    elif [ -f ${SDIR}/${RUN_FAIL_FILE} ]; then
-      ##kill -9 $TAIL_PID
+      kill -9 $TAIL_PID
       exit 1
    else
       sleep 1
