@@ -25,74 +25,68 @@ export PEER_ORGS="consumer provider"
 # Number of peers in each peer organization
 export NUM_PEERS=2
 
-#Blockchain explorer envs
-export EXPLORER_DB_IP="blockchain-explorer-db"
-export EXPLORER_DB_NAME="fabricexplorer"
-export EXPLORER_DB_USER="hppoc"
-export EXPLORER_DB_PWD="password"
-export EXPLORER_HOST="blockchain-explorer-db"
-
 #
 # The remainder of this file contains variables which typically would not be changed.
 #
 
 # All org names
-ORGS="$ORDERER_ORGS $PEER_ORGS"
+export ORGS="$ORDERER_ORGS $PEER_ORGS"
 
 # Set to true to populate the "admincerts" folder of MSPs
-ADMINCERTS=true
+export ADMINCERTS=true
 
 # Number of orderer nodes
-NUM_ORDERERS=1
+export NUM_ORDERERS=1
 
 # The volume mount to share data between containers
-DATA=data
+export DATA=data
 
 # The path to the genesis block
-GENESIS_BLOCK_FILE=/$DATA/genesis.block
+export GENESIS_BLOCK_FILE=/$DATA/genesis.block
 
 # The path to a channel transaction
-CHANNEL_TX_FILE=/$DATA/channel.tx
+export RANDOM_NUMBER=${RANDOM}
+export CHANNEL_TX_FILE=/$DATA/channel${RANDOM_NUMBER}.tx
 
 # Name of test channel
-CHANNEL_NAME=mychannel
+export CHANNEL_NAME="mychannel${RANDOM_NUMBER}"
 
 # Query timeout in seconds
-QUERY_TIMEOUT=30
+export QUERY_TIMEOUT=30
 
 # Setup timeout in seconds (for setup container to complete)
-SETUP_TIMEOUT=120
+export SETUP_TIMEOUT=120
 
 # Log directory
-LOGDIR=$DATA/logs
-LOGPATH=/$LOGDIR
+export LOGDIR=$DATA/logs
+export LOGPATH=/$LOGDIR
 
 # Name of a the file to create when setup is successful
-SETUP_SUCCESS_FILE=${LOGDIR}/setup.successful
+export SETUP_SUCCESS_FILE=${LOGDIR}/setup.successful
 # The setup container's log file
-SETUP_LOGFILE=${LOGDIR}/setup.log
+export SETUP_LOGFILE=${LOGDIR}/setup.log
 
 # The run container's log file
-RUN_LOGFILE=${LOGDIR}/run.log
+export RUN_LOGFILE=${LOGDIR}/run.log
 # The run container's summary log file
-RUN_SUMFILE=${LOGDIR}/run.sum
-RUN_SUMPATH=/${RUN_SUMFILE}
+export RUN_SUMFILE=${LOGDIR}/run.sum
+export RUN_SUMPATH="/${RUN_SUMFILE}"
 # Run success and failure files
-RUN_SUCCESS_FILE=${LOGDIR}/run.success
-RUN_FAIL_FILE=${LOGDIR}/run.fail
+export RUN_SUCCESS_FILE=${LOGDIR}/run.success
+export RUN_FAIL_FILE=${LOGDIR}/run.fail
 
 # Affiliation is not used to limit users in this sample, so just put
 # all identities in the same affiliation.
 export FABRIC_CA_CLIENT_ID_AFFILIATION=${ORDERER_ORGS}
 
 # Set to true to enable use of intermediate CAs
-USE_INTERMEDIATE_CA=true
+export USE_INTERMEDIATE_CA=true
 
 # Config block file path
-CONFIG_BLOCK_FILE=/tmp/config_block.pb
+export CONFIG_BLOCK_FILE=/tmp/config_block.pb
 
 # Update config block payload file path
-CONFIG_UPDATE_ENVELOPE_FILE=/tmp/config_update_as_envelope.pb
+export CONFIG_UPDATE_ENVELOPE_FILE=/tmp/config_update_as_envelope.pb
 
 # initOrgVars <ORG>
 function initOrgVars {
@@ -226,7 +220,7 @@ function initPeerVars {
    # https://docs.docker.com/compose/networking/
    export CORE_VM_DOCKER_HOSTCONFIG_NETWORKMODE=net_${NETWORK}
    # export CORE_LOGGING_LEVEL=ERROR
-   export CORE_LOGGING_LEVEL=DEBUG
+   export FABRIC_LOGGING_SPEC=INFO
    export CORE_PEER_TLS_ENABLED=true
    export CORE_PEER_TLS_CLIENTAUTHREQUIRED=true
    export CORE_PEER_TLS_ROOTCERT_FILE=$CA_CHAINFILE
@@ -396,7 +390,6 @@ function waitPort {
    set -e
 }
 
-
 # log a message
 function log {
    if [ "$1" = "-n" ]; then
@@ -412,3 +405,19 @@ function fatal {
    log "FATAL: $*"
    exit 1
 }
+
+export -f initOrgVars
+export -f initOrdererVars
+export -f genClientTLSCert
+export -f initPeerVars
+export -f switchToAdminIdentity
+export -f switchToUserIdentity
+export -f revokeFabricUserAndGenerateCRL
+export -f generateCRL
+export -f copyAdminCert
+export -f finishMSPSetup
+export -f awaitSetup
+export -f dowait
+export -f waitPort
+export -f log
+export -f fatal

@@ -12,7 +12,7 @@
 # IMPORTANT: The following default FABRIC_TAG value should be updated for each
 # release after the fabric-orderer and fabric-peer images have been published
 # for the release.
-export FABRIC_TAG=${FABRIC_TAG:-1.3.0}
+export FABRIC_TAG=${FABRIC_TAG:-1.4.0}
 export FABRIC_CA_TAG=${FABRIC_CA_TAG:-${FABRIC_TAG}}
 
 export NS=${NS:-hyperledger}
@@ -30,7 +30,7 @@ SAMPLES_DIR="./../chaincodes/"
 
 source $SDIR/env.sh
 
-rm -rf $DOCKER_DIR && mkdir -p $DOCKER_DIR
+#rm -rf $DOCKER_DIR && mkdir -p $DOCKER_DIR
 
 function main {
    {
@@ -42,13 +42,44 @@ function main {
    fi
    writeSetupFabric
    writeStartFabric
-   writeRunFabric
+   #writeRunFabric
    #writeBlockchainExplorer
-   writeHyperledgerComposer
+   #writeHyperledgerComposer
    } > $DOCKER_DIR/docker-compose.yaml
    log "Created docker-compose.yaml"
-   writeBlockchainExplorerService
-   log "Created config.json for blockchain browser"
+   #writeBlockchainExplorerService
+   #log "Created config.json for blockchain browser"
+}
+
+function createSingleOrganization {
+   ORGANIZATION=$1
+   PEER_COUNT=$2
+   {
+   createDockerFiles
+   writeHeader
+   initOrgVars $ORGANIZATION
+   writeRootCA
+   if $USE_INTERMEDIATE_CA; then
+      writeIntermediateCA
+   fi
+   COUNT=1
+   while [[ "$COUNT" -le $PEER_COUNT ]]; do
+      #set -x
+      initPeerVars $ORGANIZATION $COUNT
+      writePeer
+      #set +x
+      COUNT=$((COUNT+1))
+   done
+   } > $DOCKER_DIR/docker-compose-${ORGANIZATION}.yaml
+   log "Created docker-compose-${ORGANIZATION}.yaml"
+}
+
+function createPeer {
+   createDockerFile peer "7051"
+   PEER_BUILD="build:
+   context: .
+   dockerfile: fabric-ca-peer.dockerfile"
+   createDockerFile tools "8888"
 }
 
 # Create various dockerfiles used by this sample
@@ -229,10 +260,11 @@ function writeSetupFabric {
    echo "  setup:
     container_name: setup
     $TOOLS_BUILD
-    command: /bin/bash -c '/scripts/setup-fabric.sh 2>&1 | tee /$SETUP_LOGFILE; sleep 99999'
+    command: /bin/bash -c '/scripts/fabric-instantiate.sh 2>&1 | tee /$SETUP_LOGFILE; sleep 99999'
     volumes:
       - ${SCRIPTS_DIR}:/scripts
       - ${DATA_DIR}:/$DATA
+      - ${SAMPLES_DIR}:/opt/gopath/src/github.com/hyperledger/fabric-samples
     networks:
       - $NETWORK
     depends_on:"
@@ -465,7 +497,7 @@ function writePeer {
       - CORE_PEER_MSPCONFIGPATH=$MYHOME/msp
       - CORE_VM_ENDPOINT=unix:///host/var/run/docker.sock
       - CORE_VM_DOCKER_HOSTCONFIG_NETWORKMODE=net_${NETWORK}
-      - CORE_LOGGING_LEVEL=INFO
+      - FABRIC_LOGGING_SPEC=INFO
       - CORE_PEER_TLS_ENABLED=true
       - CORE_PEER_TLS_CERT_FILE=$MYHOME/tls/server.crt
       - CORE_PEER_TLS_KEY_FILE=$MYHOME/tls/server.key
@@ -497,7 +529,8 @@ function writePeer {
 }
 
 function writeHeader {
-   echo "version: '3.1'
+   echo "#File was generated automatically on $(date) by makeDocker.sh. Do not edit.
+version: '3.1'
    
 networks:
   $NETWORK:
@@ -510,4 +543,5 @@ services:
 "
 }
 
-main
+#Execute function from parameters
+$1 $2 $3

@@ -11,13 +11,13 @@
 # By default, this test is run with the latest released docker images.
 #
 # To run against a specific fabric/fabric-ca version:
-#    export FABRIC_TAG=1.3.0
+#    export FABRIC_TAG=1.4.0
 #
 # To run with locally built images:
 #    export FABRIC_TAG=local
 
 set -e
-
+export FABRIC_TAG=1.4.0
 SDIR=$(dirname "$0")
 source ${SDIR}/scripts/env.sh
 
@@ -27,6 +27,7 @@ cd ${SDIR}
 dockerContainers=$(docker ps -a | awk '$2~/hyperledger/ {print $1}')
 if [ "$dockerContainers" != "" ]; then
    log "Deleting existing docker containers ..."
+   docker stop $(docker ps -a --format "{{.Names}}")
    docker rm -f $(docker ps -a --format "{{.Names}}")
    docker network prune
    docker volume prune
@@ -45,21 +46,23 @@ DDIR=${SDIR}/${DATA}
 if [ -d ${DDIR} ]; then
    log "Cleaning up the data directory from previous run at $DDIR"
    rm -rf ${SDIR}/data
+   rm -rf ${SDIR}/docker
 fi
 mkdir -p ${DDIR}/logs
-
+mkdir -p ${DDIR}/tls
 # Create the docker-compose file
-${SDIR}/scripts/makeDocker.sh
+${SDIR}/scripts/makeDocker.sh main
+#${SDIR}/scripts/makeDocker.sh createSingleOrganization sharaga 3
 
 # Create the docker containers
 log "Creating docker containers ..."
 docker-compose -f ${SDIR}/docker/docker-compose.yaml up -d
-
+ 
 # Wait for the setup container to complete
-dowait "the 'setup' container to finish registering identities, creating the genesis block and other artifacts" 90 $SDIR/$SETUP_LOGFILE $SDIR/$SETUP_SUCCESS_FILE
+dowait "the 'setup' to finish registering identities, creating the genesis block and other artifacts" 90 $SDIR/$SETUP_LOGFILE $SDIR/$SETUP_SUCCESS_FILE
 
 # Wait for the run container to start and then tails it's summary log
-dowait "the docker 'run' container to start" 60 ${SDIR}/${SETUP_LOGFILE} ${SDIR}/${RUN_SUMFILE}
+dowait "'run' to start fabric" 60 ${SDIR}/${SETUP_LOGFILE} ${SDIR}/${RUN_SUMFILE}
 
 tail -f ${SDIR}/${RUN_SUMFILE}&
 TAIL_PID=$!
@@ -68,8 +71,7 @@ TAIL_PID=$!
 while true; do
    if [ -f ${SDIR}/${RUN_SUCCESS_FILE} ]; then
       kill -9 $TAIL_PID
-      bash ./scripts/start-explorer.sh
-      docker ps  -a
+      docker ps -a
       exit 0
    elif [ -f ${SDIR}/${RUN_FAIL_FILE} ]; then
       kill -9 $TAIL_PID

@@ -14,5 +14,5 @@ log "Stopping docker containers ..."
 # Stop chaincode containers and images as well
 docker rm -f $(docker ps -a --format "{{.Names}}")
 rm -rf data 
-rm -rf docker 
+#rm -rf docker 
 log "Docker containers have been stopped"
