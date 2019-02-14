@@ -19,9 +19,8 @@
 set -e
 export FABRIC_TAG=1.4.0
 SDIR=$(dirname "$0")
-source ${SDIR}/scripts/env.sh
-
 cd ${SDIR}
+source ${SDIR}/scripts/env.sh "here" "consumer provider" 2
 
 # Delete docker containers
 dockerContainers=$(docker ps -a | awk '$2~/hyperledger/ {print $1}')
@@ -50,9 +49,12 @@ if [ -d ${DDIR} ]; then
 fi
 mkdir -p ${DDIR}/logs
 mkdir -p ${DDIR}/tls
+mkdir -p ${SDIR}/docker
 # Create the docker-compose file
+
 ${SDIR}/scripts/makeDocker.sh main
-#${SDIR}/scripts/makeDocker.sh createSingleOrganization sharaga 3
+source ${SDIR}/scripts/env.sh "mega" "sharaga" 3
+${SDIR}/scripts/makeDocker.sh createSingleOrganization
 
 # Create the docker containers
 log "Creating docker containers ..."
@@ -62,7 +64,7 @@ docker-compose -f ${SDIR}/docker/docker-compose.yaml up -d
 dowait "the 'setup' to finish registering identities, creating the genesis block and other artifacts" 90 $SDIR/$SETUP_LOGFILE $SDIR/$SETUP_SUCCESS_FILE
 
 # Wait for the run container to start and then tails it's summary log
-dowait "'run' to start fabric" 60 ${SDIR}/${SETUP_LOGFILE} ${SDIR}/${RUN_SUMFILE}
+#dowait "'run' to start fabric" 60 ${SDIR}/${SETUP_LOGFILE} ${SDIR}/${RUN_SUMFILE}
 
 tail -f ${SDIR}/${RUN_SUMFILE}&
 TAIL_PID=$!

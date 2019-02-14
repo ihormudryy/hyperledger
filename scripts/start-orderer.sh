@@ -7,7 +7,7 @@
 
 set -ex
 sleep 10
-source $(dirname "$0")/env.sh
+source $(dirname "$0")/env.sh $ORDERER_ORGS "$PEER_ORGS" $NUM_PEERS
 fabric-ca-client enroll -d --enrollment.profile tls -u $ENROLLMENT_URL -M /tmp/tls --csr.hosts $ORDERER_HOST
 
 # Copy the TLS key and cert to the appropriate place

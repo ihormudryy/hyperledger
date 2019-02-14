@@ -13,10 +13,11 @@
 # release after the fabric-orderer and fabric-peer images have been published
 # for the release.
 export FABRIC_TAG=${FABRIC_TAG:-1.4.0}
-export FABRIC_CA_TAG=${FABRIC_CA_TAG:-${FABRIC_TAG}}
+export FABRIC_CA_TAG=${FABRIC_CA_TAG:-0.4.14}
 
 export NS=${NS:-hyperledger}
-export MARCH=$(echo "$(uname -s|tr '[:upper:]' '[:lower:]'|sed 's/mingw64_nt.*/windows/')-$(uname -m | sed 's/x86_64/amd64/g')" | awk '{print tolower($0)}')
+#export MARCH=$(echo "$(uname -s|tr '[:upper:]' '[:lower:]'|sed 's/mingw64_nt.*/windows/')-$(uname -m | sed 's/x86_64/amd64/g')" | awk '{print tolower($0)}')
+export MARCH="linux-amd64"
 CA_BINARY_FILE=hyperledger-fabric-ca-${MARCH}-${FABRIC_CA_TAG}.tar.gz
 URL=https://nexus.hyperledger.org/content/repositories/releases/org/hyperledger/fabric-ca/hyperledger-fabric-ca/${MARCH}-${FABRIC_CA_TAG}/${CA_BINARY_FILE}
 
@@ -27,10 +28,6 @@ DATA_DIR="./../data"
 
 # Set samples directory relative to this script
 SAMPLES_DIR="./../chaincodes/"
-
-source $SDIR/env.sh
-
-#rm -rf $DOCKER_DIR && mkdir -p $DOCKER_DIR
 
 function main {
    {
@@ -47,34 +44,32 @@ function main {
    #writeHyperledgerComposer
    } > $DOCKER_DIR/docker-compose.yaml
    log "Created docker-compose.yaml"
-   #writeBlockchainExplorerService
-   #log "Created config.json for blockchain browser"
 }
 
 function createSingleOrganization {
-   ORGANIZATION=$1
-   PEER_COUNT=$2
+   ORGANIZATION=$PEER_ORGS
+   PEER_COUNT=$NUM_PEERS
    {
    createDockerFiles
    writeHeader
    initOrgVars $ORGANIZATION
-   writeRootCA
+   writeRootFabricCA
    if $USE_INTERMEDIATE_CA; then
-      writeIntermediateCA
+      writeIntermediateFabricCA
    fi
+   initOrdererVars $ORDERER_ORGS 1
+   writeOrderer
    COUNT=1
    while [[ "$COUNT" -le $PEER_COUNT ]]; do
-      #set -x
       initPeerVars $ORGANIZATION $COUNT
       writePeer
-      #set +x
       COUNT=$((COUNT+1))
    done
    } > $DOCKER_DIR/docker-compose-${ORGANIZATION}.yaml
    log "Created docker-compose-${ORGANIZATION}.yaml"
 }
 
-function createPeer {
+function createPeerDockerfile {
    createDockerFile peer "7051"
    PEER_BUILD="build:
    context: .
@@ -245,6 +240,7 @@ function writeBlockchainExplorerService {
       done
    done
    echo "}}}}" >> ${DOCKER_DIR}/config.json
+   log "Created config.json for blockchain browser"
 }
 
 # Write services for the intermediate fabric CA servers
@@ -265,6 +261,10 @@ function writeSetupFabric {
       - ${SCRIPTS_DIR}:/scripts
       - ${DATA_DIR}:/$DATA
       - ${SAMPLES_DIR}:/opt/gopath/src/github.com/hyperledger/fabric-samples
+    environment:
+      - ORDERER_ORGS="$ORDERER_ORGS"
+      - PEER_ORGS="$PEER_ORGS"
+      - NUM_PEERS="$NUM_PEERS"
     networks:
       - $NETWORK
     depends_on:"
@@ -398,6 +398,9 @@ function writeRootCA {
     image: hyperledger/fabric-ca
     command: /bin/bash -c '/scripts/start-root-ca.sh 2>&1 | tee /$ROOT_CA_LOGFILE'
     environment:
+      - ORDERER_ORGS="$ORDERER_ORGS"
+      - PEER_ORGS="$PEER_ORGS"
+      - NUM_PEERS="$NUM_PEERS"
       - FABRIC_CA_SERVER_HOME=/etc/hyperledger/fabric-ca
       - FABRIC_CA_SERVER_TLS_ENABLED=true
       - FABRIC_CA_SERVER_CSR_CN=$ROOT_CA_NAME
@@ -420,6 +423,9 @@ function writeIntermediateCA {
     image: hyperledger/fabric-ca
     command: /bin/bash -c '/scripts/start-intermediate-ca.sh $ORG 2>&1 | tee /$INT_CA_LOGFILE'
     environment:
+      - ORDERER_ORGS="$ORDERER_ORGS"
+      - PEER_ORGS="$PEER_ORGS"
+      - NUM_PEERS="$NUM_PEERS"
       - FABRIC_CA_SERVER_HOME=/etc/hyperledger/fabric-ca
       - FABRIC_CA_SERVER_CA_NAME=$INT_CA_NAME
       - FABRIC_CA_SERVER_INTERMEDIATE_TLS_CERTFILES=$ROOT_CA_CERTFILE
@@ -447,6 +453,9 @@ function writeOrderer {
     container_name: $ORDERER_NAME
     $ORDERER_BUILD
     environment:
+      - ORDERER_ORGS="$ORDERER_ORGS"
+      - PEER_ORGS="$PEER_ORGS"
+      - NUM_PEERS="$NUM_PEERS"
       - FABRIC_CA_CLIENT_HOME=$MYHOME
       - FABRIC_CA_CLIENT_TLS_CERTFILES=$CA_CHAINFILE
       - ENROLLMENT_URL=https://$ORDERER_NAME_PASS@$CA_HOST:7054
@@ -467,6 +476,8 @@ function writeOrderer {
       - ORDERER_DEBUG_BROADCASTTRACEDIR=$LOGDIR
       - ORG=$ORG
       - ORG_ADMIN_CERT=$ORG_ADMIN_CERT
+      - ORDERER_KAFKA_TOPIC_REPLICATIONFACTOR=1
+      - ORDERER_KAFKA_VERBOSE=true
     command: /bin/bash -c '/scripts/start-orderer.sh 2>&1 | tee /$ORDERER_LOGFILE'
     volumes:
       - ${SCRIPTS_DIR}:/scripts
@@ -474,8 +485,10 @@ function writeOrderer {
     networks:
       - $NETWORK
     depends_on:
-      - setup
+      - zookeeper.${ORDERER_NAME}
+      - kafka.${ORDERER_NAME}
 "
+writeKafka
 }
 
 function writePeer {
@@ -484,6 +497,9 @@ function writePeer {
     container_name: $PEER_NAME
     $PEER_BUILD
     environment:
+      - ORDERER_ORGS="$ORDERER_ORGS"
+      - PEER_ORGS="$PEER_ORGS"
+      - NUM_PEERS="$NUM_PEERS"
       - FABRIC_CA_CLIENT_HOME=$MYHOME
       - FABRIC_CA_CLIENT_TLS_CERTFILES=$CA_CHAINFILE
       - ENROLLMENT_URL=https://$PEER_NAME_PASS@$CA_HOST:7054
@@ -523,14 +539,44 @@ function writePeer {
       - /var/run:/host/var/run
     networks:
       - $NETWORK
+"
+}
+
+function writeKafka {
+echo "
+  zookeeper.${ORDERER_NAME}:
+    container_name: zookeeper.${ORDERER_NAME}
+    image: hyperledger/fabric-zookeeper:$FABRIC_CA_TAG
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 32181
+      ZOOKEEPER_TICK_TIME: 2000
+    networks:
+    - $NETWORK
+
+  kafka.${ORDERER_NAME}:
+    container_name: kafka.${ORDERER_NAME}
+    image: hyperledger/fabric-kafka:$FABRIC_CA_TAG
     depends_on:
-      - setup
+    - zookeeper.${ORDERER_NAME}
+    environment:
+      - KAFKA_BROKER_ID=1
+      - KAFKA_ZOOKEEPER_CONNECT=zookeeper.${ORDERER_NAME}:2181
+      - KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://kafka.${ORDERER_NAME}:9092
+      - KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=1
+      - KAFKA_MESSAGE_MAX_BYTES=1048576 # 1 * 1024 * 1024 B
+      - KAFKA_REPLICA_FETCH_MAX_BYTES=1048576 # 1 * 1024 * 1024 B
+      - KAFKA_UNCLEAN_LEADER_ELECTION_ENABLE=false
+      - KAFKA_LOG_RETENTION_MS=-1
+      - KAFKA_MIN_INSYNC_REPLICAS=1
+      - KAFKA_DEFAULT_REPLICATION_FACTOR=1
+    networks:
+    - $NETWORK
 "
 }
 
 function writeHeader {
-   echo "#File was generated automatically on $(date) by makeDocker.sh. Do not edit.
-version: '3.1'
+echo "#File was generated automatically on $(date) by makeDocker.sh. Do not edit.
+version: '3.4'
    
 networks:
   $NETWORK:

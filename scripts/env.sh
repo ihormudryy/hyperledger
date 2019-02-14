@@ -5,7 +5,11 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
-#
+# Requires 3 parameters:
+# 1. Orderer name
+# 2. List of organizations names separated by space
+# 3. Number of peers
+
 # The following variables describe the topology and may be modified to provide
 # different organization names or the number of peers in each peer organization.
 #
@@ -16,14 +20,15 @@ export COMPOSE_PROJECT_NAME="net"
 export NETWORK="fabric-ca"
 export SUBNET="192.168.10.0/24"
 
-# Names of the orderer organizations
-export ORDERER_ORGS="here"
+# Names and types of the orderer organizations
+export ORDERER_ORGS="$1"
+export ORDERER_TYPE="kafka"
 
 # Names of the peer organizations
-export PEER_ORGS="consumer provider"
+export PEER_ORGS="$2"
 
 # Number of peers in each peer organization
-export NUM_PEERS=2
+export NUM_PEERS="$3"
 
 #
 # The remainder of this file contains variables which typically would not be changed.

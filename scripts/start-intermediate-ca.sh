@@ -5,7 +5,7 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
-source $(dirname "$0")/env.sh
+source $(dirname "$0")/env.sh $ORDERER_ORGS "$PEER_ORGS" $NUM_PEERS
 initOrgVars $ORG
 
 set -ex

@@ -6,12 +6,12 @@
 #
 
 set -ex
-source $(dirname "$0")/env.sh
+source $(dirname "$0")/env.sh $ORDERER_ORGS "$PEER_ORGS" $NUM_PEERS
 # Although a peer may use the same TLS key and certificate file for both inbound and outbound TLS,
 # we generate a different key and certificate for inbound and outbound TLS simply to show that it is permissible
 
 # Generate server TLS cert and key pair for the peer
-sleep 10
+sleep 20
 fabric-ca-client enroll -d --enrollment.profile tls -u $ENROLLMENT_URL -M /tmp/tls --csr.hosts $PEER_HOST
 
 # Copy the TLS key and cert to the appropriate place

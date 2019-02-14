@@ -16,7 +16,7 @@ function main {
 
    # Wait for setup to complete and then wait another 10 seconds for the orderer and peers to start
    awaitSetup
-   sleep 10
+   sleep 30
 
    trap finish EXIT
 
