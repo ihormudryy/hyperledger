@@ -11,16 +11,30 @@
 # 2) Builds the channel artifacts (e.g. genesis block, etc)
 #
 set -x
+SRC=$(dirname "$0")
+source $SRC/env.sh $ORDERER_ORGS "$PEER_ORGS" $NUM_PEERS
 
-function main {
+function setupOrderer {
    log "Beginning building channel artifacts ..."
    mkdir -p /$DATA/crypto${RANDOM_NUMBER}
-   registerIdentities
+   registerOrdererIdentities
    getCACerts
    makeConfigTxYaml
+   sleep 10
    generateChannelArtifacts
    log "Finished building channel artifacts"
-   touch /$SETUP_SUCCESS_FILE
+   generateTLSPairForOrderer
+   enroll $ORDERER_GENERAL_LOCALMSPDIR
+}
+
+function setupPeer {
+   log "Setting up peer ..."
+   mkdir -p /data
+   registerPeerIdentities
+   getCACerts
+   generateTLSPairForPeer
+   generateClientTLScert
+   enroll $CORE_PEER_MSPCONFIGPATH
 }
 
 # Enroll the CA administrator
@@ -32,63 +46,43 @@ function enrollCAAdmin {
    fabric-ca-client enroll -d -u https://$CA_ADMIN_USER_PASS@$CA_HOST:7054
 }
 
-function registerIdentities {
-   log "Registering identities ..."
-   registerOrdererIdentities
-   registerPeerIdentities
-}
-
 # Register any identities associated with the orderer
 function registerOrdererIdentities {
-   for ORG in $ORDERER_ORGS; do
-      initOrgVars $ORG
-      enrollCAAdmin
-      local COUNT=1
-      while [[ "$COUNT" -le $NUM_ORDERERS ]]; do
-         initOrdererVars $ORG $COUNT
-         log "Registering $ORDERER_NAME with $CA_NAME"
-         fabric-ca-client register -d --id.name $ORDERER_NAME --id.secret $ORDERER_PASS --id.type orderer
-         COUNT=$((COUNT+1))
-      done
-      log "Registering admin identity with $CA_NAME"
-      # The admin identity has the "admin" attribute which is added to ECert by default
-      fabric-ca-client register -d --id.name $ADMIN_NAME --id.secret $ADMIN_PASS --id.attrs "admin=true:ecert"
-   done
+   initOrgVars $ORG
+   enrollCAAdmin
+   initOrdererVars $ORG $COUNT
+   log "Registering $ORDERER_NAME with $CA_NAME"
+   fabric-ca-client register -d --id.name $ORDERER_NAME --id.secret $ORDERER_PASS --id.type orderer
+   log "Registering admin identity with $CA_NAME"
+   # The admin identity has the "admin" attribute which is added to ECert by default
+   fabric-ca-client register -d --id.name $ADMIN_NAME --id.secret $ADMIN_PASS --id.attrs "admin=true:ecert"
 }
 
 # Register any identities associated with a peer
 function registerPeerIdentities {
-   for ORG in $PEER_ORGS; do
-      initOrgVars $ORG
-      enrollCAAdmin
-      local COUNT=1
-      while [[ "$COUNT" -le $NUM_PEERS ]]; do
-         initPeerVars $ORG $COUNT
-         log "Registering $PEER_NAME with $CA_NAME"
-         fabric-ca-client register -d --id.name $PEER_NAME --id.secret $PEER_PASS --id.type peer
-         COUNT=$((COUNT+1))
-      done
-      log "Registering admin identity with $CA_NAME"
-      # The admin identity has the "admin" attribute which is added to ECert by default
-      fabric-ca-client register -d --id.name $ADMIN_NAME --id.secret $ADMIN_PASS --id.attrs "hf.Registrar.Roles=client,hf.Registrar.Attributes=*,hf.Revoker=true,hf.GenCRL=true,admin=true:ecert,abac.init=true:ecert"
-      log "Registering user identity with $CA_NAME"
-      fabric-ca-client register -d --id.name $USER_NAME --id.secret $USER_PASS
-   done
+   initOrgVars $ORG
+   enrollCAAdmin
+   initPeerVars $ORG $COUNT
+   log "Registering $PEER_NAME with $CA_NAME"
+   fabric-ca-client register -d --id.name $PEER_NAME --id.secret $PEER_PASS --id.type peer
+   log "Registering admin identity with $CA_NAME"
+   # The admin identity has the "admin" attribute which is added to ECert by default
+   fabric-ca-client register -d --id.name $ADMIN_NAME --id.secret $ADMIN_PASS --id.attrs "hf.Registrar.Roles=client,hf.Registrar.Attributes=*,hf.Revoker=true,hf.GenCRL=true,admin=true:ecert,abac.init=true:ecert"
+   log "Registering user identity with $CA_NAME"
+   fabric-ca-client register -d --id.name $USER_NAME --id.secret $USER_PASS
 }
 
 function getCACerts {
    log "Getting CA certificates ..."
-   for ORG in $ORGS; do
-      initOrgVars $ORG
-      log "Getting CA certs for organization $ORG and storing in $ORG_MSP_DIR"
-      export FABRIC_CA_CLIENT_TLS_CERTFILES=$CA_CHAINFILE
-      fabric-ca-client getcacert -d -u https://$CA_HOST:7054 -M $ORG_MSP_DIR
-      finishMSPSetup $ORG_MSP_DIR
-      # If ADMINCERTS is true, we need to enroll the admin now to populate the admincerts directory
-      if [ $ADMINCERTS ]; then
-         switchToAdminIdentity
-      fi
-   done
+   initOrgVars $ORG
+   log "Getting CA certs for organization $ORG and storing in $ORG_MSP_DIR"
+   export FABRIC_CA_CLIENT_TLS_CERTFILES=$CA_CHAINFILE
+   fabric-ca-client getcacert -d -u https://$CA_HOST:7054 -M $ORG_MSP_DIR
+   finishMSPSetup $ORG_MSP_DIR
+   # If ADMINCERTS is true, we need to enroll the admin now to populate the admincerts directory
+   if [ $ADMINCERTS ]; then
+      switchToAdminIdentity
+   fi
 }
 
 # printOrg
@@ -287,6 +281,36 @@ function generateChannelArtifacts() {
         fatal "Failed to generate anchor peer update for $ORG"
      fi
   done
+}
+
+function generateTLSPairForOrderer {
+   echo "fabric-ca-client enroll -d --enrollment.profile tls -u $ENROLLMENT_URL -M $TLSDIR --csr.hosts $ORDERER_HOST"
+   fabric-ca-client enroll -d --enrollment.profile tls -u $ENROLLMENT_URL -M $TLSDIR --csr.hosts $ORDERER_HOST
+   mv $TLSDIR/keystore/* $ORDERER_GENERAL_TLS_PRIVATEKEY
+   mv $TLSDIR/signcerts/* $ORDERER_GENERAL_TLS_CERTIFICATE
+}
+
+function generateTLSPairForPeer {
+   # Although a peer may use the same TLS key and certificate file for both inbound and outbound TLS,
+   # we generate a different key and certificate for inbound and outbound TLS simply to show that it is permissible
+   # Generate server TLS cert and key pair for the peer
+   fabric-ca-client enroll -d --enrollment.profile tls -u $ENROLLMENT_URL -M $TLSDIR --csr.hosts $PEER_HOST
+   mv $TLSDIR/keystore/* $CORE_PEER_TLS_KEY_FILE
+   mv $TLSDIR/signcerts/* $CORE_PEER_TLS_CERT_FILE
+}
+
+function generateClientTLScert {
+   # Generate client TLS cert and key pair for the peer
+   genClientTLSCert $PEER_NAME $CORE_PEER_TLS_CLIENTCERT_FILE $CORE_PEER_TLS_CLIENTKEY_FILE
+   # Generate client TLS cert and key pair for the peer CLI
+   genClientTLSCert $PEER_NAME $TLSDIR/$PEER_NAME-cli-client.crt $TLSDIR/$PEER_NAME-cli-client.key
+}
+
+function enroll {
+   # Enroll to get an enrollment certificate and set up the core's local MSP directory
+   fabric-ca-client enroll -d -u $ENROLLMENT_URL -M $1
+   finishMSPSetup $1
+   copyAdminCert $1
 }
 
 set -e

@@ -18,7 +18,7 @@ export COMPOSE_PROJECT_NAME="net"
 
 # Name of the docker-compose network
 export NETWORK="fabric-ca"
-export SUBNET="192.168.10.0/24"
+export SUBNET="172.16.0.0/24"
 
 # Names and types of the orderer organizations
 export ORDERER_ORGS="$1"
@@ -43,18 +43,18 @@ export ADMINCERTS=true
 # Number of orderer nodes
 export NUM_ORDERERS=1
 
-# The volume mount to share data between containers
 export DATA=data
+# The volume mount to share data between containers
+export COMMON=common
 
 # The path to the genesis block
-export GENESIS_BLOCK_FILE=/$DATA/genesis.block
+export GENESIS_BLOCK_FILE=/$DATA/crypto${RANDOM_NUMBER}/genesis.block
 
 # The path to a channel transaction
-export RANDOM_NUMBER=${RANDOM}
-export CHANNEL_TX_FILE=/$DATA/channel${RANDOM_NUMBER}.tx
+export CHANNEL_TX_FILE=/$DATA/crypto${RANDOM_NUMBER}/channel${RANDOM_NUMBER}.tx
 
 # Name of test channel
-export CHANNEL_NAME="mychannel${RANDOM_NUMBER}"
+export CHANNEL_NAME="channel${RANDOM_NUMBER}"
 
 # Query timeout in seconds
 export QUERY_TIMEOUT=30
@@ -63,7 +63,7 @@ export QUERY_TIMEOUT=30
 export SETUP_TIMEOUT=120
 
 # Log directory
-export LOGDIR=$DATA/logs
+export LOGDIR=$COMMON/logs
 export LOGPATH=/$LOGDIR
 
 # Name of a the file to create when setup is successful
@@ -121,19 +121,19 @@ function initOrgVars {
    INT_CA_ADMIN_PASS=${INT_CA_ADMIN_USER}pw
    INT_CA_ADMIN_USER_PASS=${INT_CA_ADMIN_USER}:${INT_CA_ADMIN_PASS}
    # Admin identity for the org
-   ADMIN_NAME=admin-${ORG}
+   ADMIN_NAME=admin${COUNT}-${ORG}
    ADMIN_PASS=${ADMIN_NAME}pw
    # Typical user identity for the org
-   USER_NAME=user-${ORG}
+   USER_NAME=user-${ORG}${COUNT}
    USER_PASS=${USER_NAME}pw
 
-   ROOT_CA_CERTFILE=/${DATA}/${ORG}-ca-cert.pem
-   INT_CA_CHAINFILE=/${DATA}/${ORG}-ca-chain.pem
-   ANCHOR_TX_FILE=/${DATA}/orgs/${ORG}/anchors.tx
+   ROOT_CA_CERTFILE=/${COMMON}/${ORG}-ca-cert.pem
+   INT_CA_CHAINFILE=/${COMMON}/${ORG}-ca-chain.pem
+   ANCHOR_TX_FILE=/${COMMON}/orgs/${ORG}/anchors.tx
    ORG_MSP_ID=${ORG}MSP
-   ORG_MSP_DIR=/${DATA}/orgs/${ORG}/msp
+   ORG_MSP_DIR=/${COMMON}/orgs/${ORG}/msp
    ORG_ADMIN_CERT=${ORG_MSP_DIR}/admincerts/cert.pem
-   ORG_ADMIN_HOME=/${DATA}/orgs/$ORG/admin
+   ORG_ADMIN_HOME=/${DATA}/orgs/${ORG}/admin
 
    if test "$USE_INTERMEDIATE_CA" = "true"; then
       CA_NAME=$INT_CA_NAME
@@ -174,7 +174,7 @@ function initOrdererVars {
    export ORDERER_GENERAL_LOCALMSPDIR=$MYHOME/msp
    # enabled TLS
    export ORDERER_GENERAL_TLS_ENABLED=true
-   TLSDIR=$MYHOME/tls
+   export TLSDIR=$MYHOME/tls
    export ORDERER_GENERAL_TLS_PRIVATEKEY=$TLSDIR/server.key
    export ORDERER_GENERAL_TLS_CERTIFICATE=$TLSDIR/server.crt
    export ORDERER_GENERAL_TLS_ROOTCAS=[$CA_CHAINFILE]
@@ -191,12 +191,9 @@ function genClientTLSCert {
    KEY_FILE=$3
 
    # Get a client cert
-   fabric-ca-client enroll -d --enrollment.profile tls -u $ENROLLMENT_URL -M /tmp/tls --csr.hosts $HOST_NAME
-
-   mkdir /$DATA/tls || true
-   cp /tmp/tls/signcerts/* $CERT_FILE
-   cp /tmp/tls/keystore/* $KEY_FILE
-   rm -rf /tmp/tls
+   fabric-ca-client enroll -d --enrollment.profile tls -u $ENROLLMENT_URL -M $TLSDIR --csr.hosts $HOST_NAME
+   mv $TLSDIR/keystore/* $KEY_FILE
+   mv $TLSDIR/signcerts/* $CERT_FILE
 }
 
 # initPeerVars <ORG> <NUM>
@@ -229,8 +226,8 @@ function initPeerVars {
    export CORE_PEER_TLS_ENABLED=true
    export CORE_PEER_TLS_CLIENTAUTHREQUIRED=true
    export CORE_PEER_TLS_ROOTCERT_FILE=$CA_CHAINFILE
-   export CORE_PEER_TLS_CLIENTCERT_FILE=/$DATA/tls/$PEER_NAME-cli-client.crt
-   export CORE_PEER_TLS_CLIENTKEY_FILE=/$DATA/tls/$PEER_NAME-cli-client.key
+   #export CORE_PEER_TLS_CLIENTCERT_FILE=/$DATA/tls/$PEER_NAME-cli-client.crt
+   #export CORE_PEER_TLS_CLIENTKEY_FILE=/$DATA/tls/$PEER_NAME-cli-client.key
    export CORE_PEER_PROFILE_ENABLED=true
    # gossip variables
    export CORE_PEER_GOSSIP_USELEADERELECTION=true
@@ -260,7 +257,7 @@ function switchToAdminIdentity {
          cp $ORG_ADMIN_HOME/msp/signcerts/* $ORG_ADMIN_HOME/msp/admincerts
       fi
    fi
-   export CORE_PEER_MSPCONFIGPATH=$ORG_ADMIN_HOME/msp
+   #export CORE_PEER_MSPCONFIGPATH=$ORG_ADMIN_HOME/msp
    set +ex
 }
 
@@ -268,7 +265,7 @@ function switchToAdminIdentity {
 function switchToUserIdentity {
    set -ex
    export FABRIC_CA_CLIENT_HOME=/etc/hyperledger/fabric/orgs/$ORG/user
-   export CORE_PEER_MSPCONFIGPATH=$FABRIC_CA_CLIENT_HOME/msp
+   #export CORE_PEER_MSPCONFIGPATH=$FABRIC_CA_CLIENT_HOME/msp
    if [ ! -d $FABRIC_CA_CLIENT_HOME ]; then
       dowait "$CA_NAME to start" 60 $CA_LOGFILE $CA_CHAINFILE
       log "Enrolling user for organization $ORG with home directory $FABRIC_CA_CLIENT_HOME ..."
@@ -329,6 +326,16 @@ function finishMSPSetup {
       if [ -d $1/intermediatecerts ]; then
          mkdir $1/tlsintermediatecerts
          cp $1/intermediatecerts/* $1/tlsintermediatecerts
+         cp $1/intermediatecerts/* /usr/local/share/ca-certificates/
+         mkdir -p /usr/local/share/ca-certificates/HyperledgerCerts
+         cp $ROOT_CA_CERTFILE /usr/local/share/ca-certificates/HyperledgerCerts/
+         cp $INT_CA_CHAINFILE /usr/local/share/ca-certificates/HyperledgerCerts/
+         cp $CORE_PEER_TLS_CLIENTCERT_FILE /usr/local/share/ca-certificates/HyperledgerCerts/
+         cp $ORDERER_GENERAL_TLS_CERTIFICATE /usr/local/share/ca-certificates/HyperledgerCerts/
+         chmod 755 /usr/local/share/ca-certificates/HyperledgerCerts
+         chmod 644 /usr/local/share/ca-certificates/HyperledgerCerts/*
+         ls -la /usr/local/share/ca-certificates/HyperledgerCerts
+         update-ca-certificates
       fi
    fi
 }

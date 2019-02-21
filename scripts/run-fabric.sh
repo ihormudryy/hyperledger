@@ -127,7 +127,7 @@ function joinChannel {
    MAX_RETRY=10
    while true; do
       logr "Peer $PEER_HOST is attempting to join channel '$CHANNEL_NAME' (attempt #${COUNT}) ..."
-      peer channel join -b $CHANNEL_NAME.block
+      peer channel join -b /data/crypto${RANDOM_NUMBER}/$CHANNEL_NAME.block
       if [ $? -eq 0 ]; then
          set -e
          logr "Peer $PEER_HOST successfully joined channel '$CHANNEL_NAME'"
@@ -289,4 +289,4 @@ function fatalr {
    exit 1
 }
 
-main
+$1

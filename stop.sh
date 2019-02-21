@@ -14,7 +14,6 @@ docker stop $(docker ps -a --format "{{.Names}}")
 docker rm -f $(docker ps -a --format "{{.Names}}")
 docker network prune
 docker volume prune
-#docker rmi -f $(docker images -a -q)
+docker rmi -f $(docker images -a -q)
 rm -rf data 
-#rm -rf docker 
 log "Docker containers have been stopped"

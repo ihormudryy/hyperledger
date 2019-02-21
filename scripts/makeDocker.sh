@@ -18,13 +18,15 @@ export FABRIC_CA_TAG=${FABRIC_CA_TAG:-0.4.14}
 export NS=${NS:-hyperledger}
 #export MARCH=$(echo "$(uname -s|tr '[:upper:]' '[:lower:]'|sed 's/mingw64_nt.*/windows/')-$(uname -m | sed 's/x86_64/amd64/g')" | awk '{print tolower($0)}')
 export MARCH="linux-amd64"
-CA_BINARY_FILE=hyperledger-fabric-ca-${MARCH}-${FABRIC_CA_TAG}.tar.gz
-URL=https://nexus.hyperledger.org/content/repositories/releases/org/hyperledger/fabric-ca/hyperledger-fabric-ca/${MARCH}-${FABRIC_CA_TAG}/${CA_BINARY_FILE}
-
+CA_BINARY_FILE=hyperledger-fabric-ca-${MARCH}-${FABRIC_TAG}.tar.gz
+BINARY_FILE=hyperledger-fabric-${MARCH}-${FABRIC_TAG}.tar.gz
+URL_CA="https://nexus.hyperledger.org/content/repositories/releases/org/hyperledger/fabric-ca/hyperledger-fabric-ca/${MARCH}-${FABRIC_TAG}/${CA_BINARY_FILE}"
+URL_FABRIC="https://nexus.hyperledger.org/content/repositories/releases/org/hyperledger/fabric/hyperledger-fabric/${MARCH}-${FABRIC_TAG}/${BINARY_FILE}"
 SDIR=$(dirname "$0")
 DOCKER_DIR="$SDIR/../docker"
 SCRIPTS_DIR="./../scripts"
 DATA_DIR="./../data"
+COMMON_DIR="./../common"
 
 # Set samples directory relative to this script
 SAMPLES_DIR="./../chaincodes/"
@@ -104,9 +106,10 @@ function createDockerFile {
    {
       echo "FROM ${NS}/fabric-${1}:${FABRIC_TAG}"
       echo 'RUN apt-get update && apt-get install -y netcat jq && apt-get install -y curl && rm -rf /var/cache/apt'
-      echo "RUN curl -o /tmp/fabric-ca-client.tar.gz $URL && tar -xzvf /tmp/fabric-ca-client.tar.gz -C /tmp && cp /tmp/bin/fabric-ca-client /usr/local/bin"
-      echo 'RUN chmod +x /usr/local/bin/fabric-ca-client'
-      echo 'ARG FABRIC_CA_DYNAMIC_LINK=false'
+      echo "RUN curl -o /tmp/fabric-ca-client.tar.gz $URL_CA && tar -xzvf /tmp/fabric-ca-client.tar.gz -C /tmp && cp -r /tmp/bin/* /usr/local/bin"
+      echo "RUN curl -o /tmp/fabric-client.tar.gz $URL_FABRIC && tar -xzvf /tmp/fabric-client.tar.gz -C /tmp && cp -r /tmp/bin/* /usr/local/bin"
+      echo 'RUN chmod +x -R /usr/local/bin/*'
+      echo 'ARG FABRIC_CA_DYNAMIC_LINK=true'
       echo "EXPOSE ${2}"
       echo 'RUN if [ "\$FABRIC_CA_DYNAMIC_LINK" = "true" ]; then apt-get install -y libltdl-dev; fi'
    } > $DOCKER_DIR/fabric-ca-${1}.dockerfile
@@ -265,12 +268,21 @@ function writeSetupFabric {
       - ORDERER_ORGS="$ORDERER_ORGS"
       - PEER_ORGS="$PEER_ORGS"
       - NUM_PEERS="$NUM_PEERS"
+      - RANDOM_NUMBER="$RANDOM_NUMBER"
     networks:
       - $NETWORK
     depends_on:"
    for ORG in $ORGS; do
       initOrgVars $ORG
       echo "      - $CA_NAME"
+   done
+   for ORG in $ORDERER_ORGS; do
+      COUNT=1
+      while [[ "$COUNT" -le $NUM_ORDERERS ]]; do
+         initOrdererVars $ORG $COUNT
+         echo "      - $ORDERER_NAME"
+         COUNT=$((COUNT+1))
+      done
    done
    echo ""
 }
@@ -409,9 +421,10 @@ function writeRootCA {
       - BOOTSTRAP_USER_PASS=$ROOT_CA_ADMIN_USER_PASS
       - TARGET_CERTFILE=$ROOT_CA_CERTFILE
       - FABRIC_ORGS="$ORGS"
+      - RANDOM_NUMBER="$RANDOM_NUMBER"
     volumes:
       - ${SCRIPTS_DIR}:/scripts
-      - ${DATA_DIR}:/$DATA
+      - ${COMMON_DIR}:/common
     networks:
       - $NETWORK
 "
@@ -437,9 +450,10 @@ function writeIntermediateCA {
       - TARGET_CHAINFILE=$INT_CA_CHAINFILE
       - ORG=$ORG
       - FABRIC_ORGS="$ORGS"
+      - RANDOM_NUMBER="$RANDOM_NUMBER"
     volumes:
       - ${SCRIPTS_DIR}:/scripts
-      - ${DATA_DIR}:/$DATA
+      - ${COMMON_DIR}:/common
     networks:
       - $NETWORK
     depends_on:
@@ -472,22 +486,31 @@ function writeOrderer {
       - ORDERER_GENERAL_TLS_ROOTCAS=[$CA_CHAINFILE]
       - ORDERER_GENERAL_TLS_CLIENTAUTHREQUIRED=true
       - ORDERER_GENERAL_TLS_CLIENTROOTCAS=[$CA_CHAINFILE]
-      - ORDERER_GENERAL_LOGLEVEL=info
+      - ORDERER_GENERAL_LOGLEVEL=debug
       - ORDERER_DEBUG_BROADCASTTRACEDIR=$LOGDIR
       - ORG=$ORG
+      - COUNT=$COUNT
       - ORG_ADMIN_CERT=$ORG_ADMIN_CERT
       - ORDERER_KAFKA_TOPIC_REPLICATIONFACTOR=1
       - ORDERER_KAFKA_VERBOSE=true
+      - RANDOM_NUMBER="$RANDOM_NUMBER"
     command: /bin/bash -c '/scripts/start-orderer.sh 2>&1 | tee /$ORDERER_LOGFILE'
     volumes:
       - ${SCRIPTS_DIR}:/scripts
-      - ${DATA_DIR}:/$DATA
+      - ${COMMON_DIR}:/common
     networks:
       - $NETWORK
     depends_on:
       - zookeeper.${ORDERER_NAME}
-      - kafka.${ORDERER_NAME}
-"
+      - kafka.${ORDERER_NAME}"
+   for ORG in $PEER_ORGS; do
+      COUNT=1
+      while [[ "$COUNT" -le $NUM_PEERS ]]; do
+         initPeerVars $ORG $COUNT
+         echo "      - $PEER_NAME"
+         COUNT=$((COUNT+1))
+      done
+   done
 writeKafka
 }
 
@@ -520,14 +543,16 @@ function writePeer {
       - CORE_PEER_TLS_ROOTCERT_FILE=$CA_CHAINFILE
       - CORE_PEER_TLS_CLIENTAUTHREQUIRED=false
       - CORE_PEER_TLS_CLIENTROOTCAS_FILES=$CA_CHAINFILE
-      - CORE_PEER_TLS_CLIENTCERT_FILE=/$DATA/tls/$PEER_NAME-client.crt
-      - CORE_PEER_TLS_CLIENTKEY_FILE=/$DATA/tls/$PEER_NAME-client.key
+      - CORE_PEER_TLS_CLIENTCERT_FILE=$TLSDIR/$PEER_NAME-client.crt
+      - CORE_PEER_TLS_CLIENTKEY_FILE=$TLSDIR/$PEER_NAME-client.key
       - CORE_PEER_GOSSIP_USELEADERELECTION=true
       - CORE_PEER_GOSSIP_ORGLEADER=false
       - CORE_PEER_GOSSIP_EXTERNALENDPOINT=$PEER_HOST:7051
       - CORE_PEER_GOSSIP_SKIPHANDSHAKE=true
       - ORG=$ORG
-      - ORG_ADMIN_CERT=$ORG_ADMIN_CERT"
+      - COUNT=$COUNT
+      - ORG_ADMIN_CERT=$ORG_ADMIN_CERT
+      - RANDOM_NUMBER="$RANDOM_NUMBER""
    if [ $NUM -gt 1 ]; then
       echo "      - CORE_PEER_GOSSIP_BOOTSTRAP=peer1-${ORG}:7051"
    fi
@@ -535,7 +560,7 @@ function writePeer {
     command: /bin/bash -c '/scripts/start-peer.sh 2>&1 | tee /$PEER_LOGFILE'
     volumes:
       - ${SCRIPTS_DIR}:/scripts
-      - ${DATA_DIR}:/$DATA
+      - ${COMMON_DIR}:/common
       - /var/run:/host/var/run
     networks:
       - $NETWORK
@@ -570,7 +595,7 @@ echo "
       - KAFKA_MIN_INSYNC_REPLICAS=1
       - KAFKA_DEFAULT_REPLICATION_FACTOR=1
     networks:
-    - $NETWORK
+      - $NETWORK
 "
 }
 

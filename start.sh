@@ -18,6 +18,8 @@
 
 set -e
 export FABRIC_TAG=1.4.0
+export RANDOM_NUMBER=${RANDOM}
+
 SDIR=$(dirname "$0")
 cd ${SDIR}
 source ${SDIR}/scripts/env.sh "here" "consumer provider" 2
@@ -42,13 +44,14 @@ fi
 
 # Start with a clean data directory
 DDIR=${SDIR}/${DATA}
+CDIR=${SDIR}/${COMMON}
 if [ -d ${DDIR} ]; then
    log "Cleaning up the data directory from previous run at $DDIR"
    rm -rf ${SDIR}/data
+   rm -rf ${SDIR}/common
    rm -rf ${SDIR}/docker
 fi
-mkdir -p ${DDIR}/logs
-mkdir -p ${DDIR}/tls
+mkdir -p ${CDIR}/logs
 mkdir -p ${SDIR}/docker
 # Create the docker-compose file
 
