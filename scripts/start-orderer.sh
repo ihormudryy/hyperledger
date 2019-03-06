@@ -8,5 +8,4 @@
 # Start the orderer
 set -ex
 bash /scripts/setup-node.sh setupOrderer
-env
 orderer

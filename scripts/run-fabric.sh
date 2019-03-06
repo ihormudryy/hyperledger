@@ -8,20 +8,10 @@
 CHAINCODE_NAME="abac"
 CHAINCODE_PATH="abac/go"
 CHAINCODE_VERSION="1.0"
-LOG_FILE_NAME=/data/logs/chaincode-${CHAINCODE_NAME}-install.log
+LOG_FILE_NAME=/common/logs/chaincode-${CHAINCODE_NAME}-install.log
 
 function main {
-
-   done=false
-
-   # Wait for setup to complete and then wait another 10 seconds for the orderer and peers to start
-   awaitSetup
-   sleep 30
-
-   trap finish EXIT
-
-   mkdir -p $LOGPATH
-   logr "The docker 'run' container has started"
+   set -x
 
    # Set ORDERER_PORT_ARGS to the args needed to communicate with the 1st orderer
    IFS=', ' read -r -a OORGS <<< "$ORDERER_ORGS"
@@ -114,7 +104,7 @@ function main {
 # Enroll as a peer admin and create the channel
 function createChannel {
    initPeerVars ${PORGS[0]} 1
-   switchToAdminIdentity
+   #switchToAdminIdentity
    logr "Creating channel '$CHANNEL_NAME' on $ORDERER_HOST ..."
    peer channel create --logging-level=DEBUG -c $CHANNEL_NAME -f $CHANNEL_TX_FILE $ORDERER_CONN_ARGS
 }
@@ -127,7 +117,7 @@ function joinChannel {
    MAX_RETRY=10
    while true; do
       logr "Peer $PEER_HOST is attempting to join channel '$CHANNEL_NAME' (attempt #${COUNT}) ..."
-      peer channel join -b /data/crypto${RANDOM_NUMBER}/$CHANNEL_NAME.block
+      peer channel join -b /private/crypto${RANDOM_NUMBER}/$CHANNEL_NAME.block
       if [ $? -eq 0 ]; then
          set -e
          logr "Peer $PEER_HOST successfully joined channel '$CHANNEL_NAME'"

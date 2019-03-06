@@ -39,13 +39,20 @@ function main {
    if $USE_INTERMEDIATE_CA; then
       writeIntermediateFabricCA
    fi
-   writeSetupFabric
    writeStartFabric
-   #writeRunFabric
    #writeBlockchainExplorer
    #writeHyperledgerComposer
    } > $DOCKER_DIR/docker-compose.yaml
    log "Created docker-compose.yaml"
+}
+
+function createFabricRunner {
+   {
+   createDockerFiles
+   writeHeader
+   writeSetupFabric
+   } > $DOCKER_DIR/docker-compose-setup.yaml
+   log "Created docker-compose-setup.yaml"
 }
 
 function createSingleOrganization {
@@ -60,8 +67,8 @@ function createSingleOrganization {
       writeIntermediateFabricCA
    fi
    initOrdererVars $ORDERER_ORGS 1
-   writeOrderer
    COUNT=1
+   writeOrderer
    while [[ "$COUNT" -le $PEER_COUNT ]]; do
       initPeerVars $ORGANIZATION $COUNT
       writePeer
@@ -256,35 +263,23 @@ function writeIntermediateFabricCA {
 
 # Write a service to setup the fabric artifacts (e.g. genesis block, etc)
 function writeSetupFabric {
+   export MYHOME="/private"
    echo "  setup:
     container_name: setup
     $TOOLS_BUILD
-    command: /bin/bash -c '/scripts/fabric-instantiate.sh 2>&1 | tee /$SETUP_LOGFILE; sleep 99999'
+    stdin_open: true
+    tty: true
     volumes:
       - ${SCRIPTS_DIR}:/scripts
-      - ${DATA_DIR}:/$DATA
+      - ${COMMON_DIR}:/common
       - ${SAMPLES_DIR}:/opt/gopath/src/github.com/hyperledger/fabric-samples
+      - private:/private
     environment:
-      - ORDERER_ORGS="$ORDERER_ORGS"
-      - PEER_ORGS="$PEER_ORGS"
-      - NUM_PEERS="$NUM_PEERS"
       - RANDOM_NUMBER="$RANDOM_NUMBER"
+      - PEER_HOME=$MYHOME
+      - ORDERER_HOME=$MYHOME
     networks:
-      - $NETWORK
-    depends_on:"
-   for ORG in $ORGS; do
-      initOrgVars $ORG
-      echo "      - $CA_NAME"
-   done
-   for ORG in $ORDERER_ORGS; do
-      COUNT=1
-      while [[ "$COUNT" -le $NUM_ORDERERS ]]; do
-         initOrdererVars $ORG $COUNT
-         echo "      - $ORDERER_NAME"
-         COUNT=$((COUNT+1))
-      done
-   done
-   echo ""
+      - $NETWORK"
 }
 
 # Write services for fabric orderer and peer containers
@@ -369,41 +364,6 @@ function writeBlockchainExplorer {
       - setup"
 }
 
-# Write a service to run a fabric test including creating a channel,
-# installing chaincodes, invoking and querying
-function writeRunFabric {
-   echo "  run:
-    container_name: run
-    image: hyperledger/fabric-ca-tools
-    environment:
-      - GOPATH=/opt/gopath
-    command: /bin/bash -c 'sleep 3;/scripts/run-fabric.sh 2>&1 | tee /$RUN_LOGFILE; sleep 99999'
-    volumes:
-      - ${SCRIPTS_DIR}:/scripts
-      - ${DATA_DIR}:/$DATA
-      - ${SAMPLES_DIR}:/opt/gopath/src/github.com/hyperledger/fabric-samples
-    working_dir: /opt/gopath/src/github.com/hyperledger/fabric-samples
-    networks:
-      - $NETWORK
-    depends_on:"
-   for ORG in $ORDERER_ORGS; do
-      COUNT=1
-      while [[ "$COUNT" -le $NUM_ORDERERS ]]; do
-         initOrdererVars $ORG $COUNT
-         echo "      - $ORDERER_NAME"
-         COUNT=$((COUNT+1))
-      done
-   done
-   for ORG in $PEER_ORGS; do
-      COUNT=1
-      while [[ "$COUNT" -le $NUM_PEERS ]]; do
-         initPeerVars $ORG $COUNT
-         echo "      - $PEER_NAME"
-         COUNT=$((COUNT+1))
-      done
-   done
-}
-
 function writeRootCA {
    echo "  $ROOT_CA_NAME:
     container_name: $ROOT_CA_NAME
@@ -448,7 +408,7 @@ function writeIntermediateCA {
       - BOOTSTRAP_USER_PASS=$INT_CA_ADMIN_USER_PASS
       - PARENT_URL=https://$ROOT_CA_ADMIN_USER_PASS@$ROOT_CA_HOST:7054
       - TARGET_CHAINFILE=$INT_CA_CHAINFILE
-      - ORG=$ORG
+      - ORGANIZATION=$ORG
       - FABRIC_ORGS="$ORGS"
       - RANDOM_NUMBER="$RANDOM_NUMBER"
     volumes:
@@ -462,7 +422,7 @@ function writeIntermediateCA {
 }
 
 function writeOrderer {
-   MYHOME=/etc/hyperledger/orderer
+   export MYHOME=/etc/hyperledger/orderer
    echo "  $ORDERER_NAME:
     container_name: $ORDERER_NAME
     $ORDERER_BUILD
@@ -483,12 +443,13 @@ function writeOrderer {
       - ORDERER_GENERAL_TLS_ENABLED=true
       - ORDERER_GENERAL_TLS_PRIVATEKEY=$MYHOME/tls/server.key
       - ORDERER_GENERAL_TLS_CERTIFICATE=$MYHOME/tls/server.crt
-      - ORDERER_GENERAL_TLS_ROOTCAS=[$CA_CHAINFILE]
+      - ORDERER_GENERAL_TLS_ROOTCAS=$CA_CHAINFILE
       - ORDERER_GENERAL_TLS_CLIENTAUTHREQUIRED=true
-      - ORDERER_GENERAL_TLS_CLIENTROOTCAS=[$CA_CHAINFILE]
-      - ORDERER_GENERAL_LOGLEVEL=debug
+      - ORDERER_GENERAL_TLS_CLIENTROOTCAS=$CA_CHAINFILE
+      - ORDERER_GENERAL_LOGLEVEL=INFO
       - ORDERER_DEBUG_BROADCASTTRACEDIR=$LOGDIR
-      - ORG=$ORG
+      - FABRIC_LOGGING_SPEC=INFO
+      - ORGANIZATION=$ORG
       - COUNT=$COUNT
       - ORG_ADMIN_CERT=$ORG_ADMIN_CERT
       - ORDERER_KAFKA_TOPIC_REPLICATIONFACTOR=1
@@ -498,6 +459,7 @@ function writeOrderer {
     volumes:
       - ${SCRIPTS_DIR}:/scripts
       - ${COMMON_DIR}:/common
+      - private:/private
     networks:
       - $NETWORK
     depends_on:
@@ -515,7 +477,7 @@ writeKafka
 }
 
 function writePeer {
-   MYHOME=/opt/gopath/src/github.com/hyperledger/fabric/peer
+   export MYHOME=/opt/gopath/src/github.com/hyperledger/fabric/peer
    echo "  $PEER_NAME:
     container_name: $PEER_NAME
     $PEER_BUILD
@@ -541,15 +503,15 @@ function writePeer {
       - CORE_PEER_TLS_CERT_FILE=$MYHOME/tls/server.crt
       - CORE_PEER_TLS_KEY_FILE=$MYHOME/tls/server.key
       - CORE_PEER_TLS_ROOTCERT_FILE=$CA_CHAINFILE
-      - CORE_PEER_TLS_CLIENTAUTHREQUIRED=false
+      - CORE_PEER_TLS_CLIENTAUTHREQUIRED=true
       - CORE_PEER_TLS_CLIENTROOTCAS_FILES=$CA_CHAINFILE
-      - CORE_PEER_TLS_CLIENTCERT_FILE=$TLSDIR/$PEER_NAME-client.crt
-      - CORE_PEER_TLS_CLIENTKEY_FILE=$TLSDIR/$PEER_NAME-client.key
+      - CORE_PEER_TLS_CLIENTCERT_FILE=$MYHOME/tls/$PEER_NAME-client.crt
+      - CORE_PEER_TLS_CLIENTKEY_FILE=$MYHOME/tls/$PEER_NAME-client.key
       - CORE_PEER_GOSSIP_USELEADERELECTION=true
       - CORE_PEER_GOSSIP_ORGLEADER=false
       - CORE_PEER_GOSSIP_EXTERNALENDPOINT=$PEER_HOST:7051
       - CORE_PEER_GOSSIP_SKIPHANDSHAKE=true
-      - ORG=$ORG
+      - ORGANIZATION=$ORG
       - COUNT=$COUNT
       - ORG_ADMIN_CERT=$ORG_ADMIN_CERT
       - RANDOM_NUMBER="$RANDOM_NUMBER""
@@ -562,6 +524,7 @@ function writePeer {
       - ${SCRIPTS_DIR}:/scripts
       - ${COMMON_DIR}:/common
       - /var/run:/host/var/run
+      - private:/private
     networks:
       - $NETWORK
 "
@@ -609,6 +572,9 @@ networks:
       driver: default
       config:
         - subnet: ${SUBNET}
+
+volumes:
+  private:
 
 services:
 "

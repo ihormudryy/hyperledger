@@ -5,10 +5,9 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
-source $(dirname "$0")/env.sh $ORDERER_ORGS "$PEER_ORGS" $NUM_PEERS
-initOrgVars $ORG
-
 set -ex
+source $(dirname "$0")/env.sh $ORDERER_ORGS "$PEER_ORGS" $NUM_PEERS
+initOrgVars $ORGANIZATION
 
 # Wait for the root CA to start
 waitPort "root CA to start" 60 $ROOT_CA_LOGFILE $ROOT_CA_HOST 7054

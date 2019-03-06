@@ -10,47 +10,66 @@
 # 1) registers orderer and peer identities with intermediate fabric-ca-servers
 # 2) Builds the channel artifacts (e.g. genesis block, etc)
 #
-set -x
 SRC=$(dirname "$0")
 source $SRC/env.sh $ORDERER_ORGS "$PEER_ORGS" $NUM_PEERS
 
 function setupOrderer {
    log "Beginning building channel artifacts ..."
-   mkdir -p /$DATA/crypto${RANDOM_NUMBER}
+   mkdir -p /private/crypto${RANDOM_NUMBER}
+   mkdir -p $ORDERER_GENERAL_LOCALMSPDIR
    registerOrdererIdentities
    getCACerts
-   makeConfigTxYaml
-   sleep 10
-   generateChannelArtifacts
-   log "Finished building channel artifacts"
-   generateTLSPairForOrderer
+   genClientTLSCert $ORDERER_NAME $ORDERER_GENERAL_TLS_CERTIFICATE $ORDERER_GENERAL_TLS_PRIVATEKEY
    enroll $ORDERER_GENERAL_LOCALMSPDIR
+   sleep 10
+   makeConfigTxYaml
+   generateChannelArtifacts
 }
 
 function setupPeer {
    log "Setting up peer ..."
    mkdir -p /data
+   mkdir -p $CORE_PEER_MSPCONFIGPATH
+   mkdir -p /private/tls
    registerPeerIdentities
    getCACerts
-   generateTLSPairForPeer
-   generateClientTLScert
+   generateTLSPair $PEER_NAME $CORE_PEER_TLS_CERT_FILE $CORE_PEER_TLS_KEY_FILE
    enroll $CORE_PEER_MSPCONFIGPATH
+}
+
+function generateTLSPair {
+   # Although a node may use the same TLS key and certificate file for both inbound and outbound TLS,
+   # we generate a different key and certificate for inbound and outbound TLS simply to show that it is permissible
+   # Generate server TLS cert and key pair for the peer
+   log "Enrolling tls profile into intermediate CA"
+   genClientTLSCert $1 $2 $3
+   genClientTLSCert $1 $TLSDIR/$1-client.crt $TLSDIR/$1-client.key
+   genClientTLSCert $1 /private/tls/$1-cli-client.crt /private/tls/$1-cli-client.key
+}
+
+function generateClientTLScert {
+   genClientTLSCert $1 $2 $3
+   genClientTLSCert $1 $TLSDIR/$1-cli-client.crt $TLSDIR/$1-cli-client.key
+}
+
+function enroll {
+   # Enroll to get an enrollment certificate and set up the core's local MSP directory
+   fabric-ca-client enroll -d -u $ENROLLMENT_URL -M $1
+   finishMSPSetup $1
+   copyAdminCert $1
 }
 
 # Enroll the CA administrator
 function enrollCAAdmin {
    waitPort "$CA_NAME to start" 90 $CA_LOGFILE $CA_HOST 7054
    log "Enrolling with $CA_NAME as bootstrap identity ..."
-   export FABRIC_CA_CLIENT_HOME=$HOME/cas/$CA_NAME
-   export FABRIC_CA_CLIENT_TLS_CERTFILES=$CA_CHAINFILE
    fabric-ca-client enroll -d -u https://$CA_ADMIN_USER_PASS@$CA_HOST:7054
 }
 
 # Register any identities associated with the orderer
 function registerOrdererIdentities {
-   initOrgVars $ORG
+   initOrdererVars $ORGANIZATION $COUNT
    enrollCAAdmin
-   initOrdererVars $ORG $COUNT
    log "Registering $ORDERER_NAME with $CA_NAME"
    fabric-ca-client register -d --id.name $ORDERER_NAME --id.secret $ORDERER_PASS --id.type orderer
    log "Registering admin identity with $CA_NAME"
@@ -60,9 +79,9 @@ function registerOrdererIdentities {
 
 # Register any identities associated with a peer
 function registerPeerIdentities {
-   initOrgVars $ORG
+   initOrgVars $ORGANIZATION
    enrollCAAdmin
-   initPeerVars $ORG $COUNT
+   initPeerVars $ORGANIZATION $COUNT
    log "Registering $PEER_NAME with $CA_NAME"
    fabric-ca-client register -d --id.name $PEER_NAME --id.secret $PEER_PASS --id.type peer
    log "Registering admin identity with $CA_NAME"
@@ -74,8 +93,8 @@ function registerPeerIdentities {
 
 function getCACerts {
    log "Getting CA certificates ..."
-   initOrgVars $ORG
-   log "Getting CA certs for organization $ORG and storing in $ORG_MSP_DIR"
+   initOrgVars $ORGANIZATION
+   log "Getting CA certs for organization $ORGANIZATION and storing in $ORG_MSP_DIR"
    export FABRIC_CA_CLIENT_TLS_CERTFILES=$CA_CHAINFILE
    fabric-ca-client getcacert -d -u https://$CA_HOST:7054 -M $ORG_MSP_DIR
    finishMSPSetup $ORG_MSP_DIR
@@ -90,7 +109,7 @@ function printOrg {
    echo "
   - &$ORG_CONTAINER_NAME
 
-    Name: $ORG
+    Name: $ORGANIZATION
 
     # ID to load the MSP definition as
     ID: $ORG_MSP_ID
@@ -247,9 +266,9 @@ Profiles:
       echo "        - *${ORG_CONTAINER_NAME}"
    done
 
-   } > /$DATA/crypto${RANDOM_NUMBER}/configtx.yaml
+   } > /private/crypto${RANDOM_NUMBER}/configtx.yaml
    # Copy it to the data directory to make debugging easier
-   cp /$DATA/crypto${RANDOM_NUMBER}/configtx.yaml /etc/hyperledger/fabric/
+   cp /private/crypto${RANDOM_NUMBER}/configtx.yaml /etc/hyperledger/fabric/
 }
 
 function generateChannelArtifacts() {
@@ -275,42 +294,12 @@ function generateChannelArtifacts() {
   for ORG in $PEER_ORGS; do
      initOrgVars $ORG
      log "Generating anchor peer update transaction for $ORG at $ANCHOR_TX_FILE"
-     configtxgen -profile OrgsChannel -outputAnchorPeersUpdate $ANCHOR_TX_FILE \
-                 -channelID $CHANNEL_NAME -asOrg $ORG
+     #configtxgen -profile OrgsChannel -outputAnchorPeersUpdate $ANCHOR_TX_FILE \
+     #            -channelID $CHANNEL_NAME -asOrg $ORG
      if [ "$?" -ne 0 ]; then
         fatal "Failed to generate anchor peer update for $ORG"
      fi
   done
-}
-
-function generateTLSPairForOrderer {
-   echo "fabric-ca-client enroll -d --enrollment.profile tls -u $ENROLLMENT_URL -M $TLSDIR --csr.hosts $ORDERER_HOST"
-   fabric-ca-client enroll -d --enrollment.profile tls -u $ENROLLMENT_URL -M $TLSDIR --csr.hosts $ORDERER_HOST
-   mv $TLSDIR/keystore/* $ORDERER_GENERAL_TLS_PRIVATEKEY
-   mv $TLSDIR/signcerts/* $ORDERER_GENERAL_TLS_CERTIFICATE
-}
-
-function generateTLSPairForPeer {
-   # Although a peer may use the same TLS key and certificate file for both inbound and outbound TLS,
-   # we generate a different key and certificate for inbound and outbound TLS simply to show that it is permissible
-   # Generate server TLS cert and key pair for the peer
-   fabric-ca-client enroll -d --enrollment.profile tls -u $ENROLLMENT_URL -M $TLSDIR --csr.hosts $PEER_HOST
-   mv $TLSDIR/keystore/* $CORE_PEER_TLS_KEY_FILE
-   mv $TLSDIR/signcerts/* $CORE_PEER_TLS_CERT_FILE
-}
-
-function generateClientTLScert {
-   # Generate client TLS cert and key pair for the peer
-   genClientTLSCert $PEER_NAME $CORE_PEER_TLS_CLIENTCERT_FILE $CORE_PEER_TLS_CLIENTKEY_FILE
-   # Generate client TLS cert and key pair for the peer CLI
-   genClientTLSCert $PEER_NAME $TLSDIR/$PEER_NAME-cli-client.crt $TLSDIR/$PEER_NAME-cli-client.key
-}
-
-function enroll {
-   # Enroll to get an enrollment certificate and set up the core's local MSP directory
-   fabric-ca-client enroll -d -u $ENROLLMENT_URL -M $1
-   finishMSPSetup $1
-   copyAdminCert $1
 }
 
 set -e

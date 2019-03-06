@@ -12,13 +12,17 @@
 #
 set -x
 
+SDIR=$(dirname "$0")
+source $SDIR/env.sh $ORDERER_ORGS "$PEER_ORGS" $NUM_PEERS
+
 function main {
    log "Beginning building channel artifacts ..."
    mkdir -p /$DATA/crypto${RANDOM_NUMBER}
-   registerIdentities
+   registerOrdererIdentities
    getCACerts
    makeConfigTxYaml
    generateChannelArtifacts
+   fabric-ca-client enroll -d --enrollment.profile tls -u $ENROLLMENT_URL -M $TLSDIR --csr.hosts $ORDERER_HOST
    log "Finished building channel artifacts"
    touch /$SETUP_SUCCESS_FILE
 }

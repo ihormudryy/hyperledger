@@ -46,23 +46,23 @@ fi
 DDIR=${SDIR}/${DATA}
 CDIR=${SDIR}/${COMMON}
 if [ -d ${DDIR} ]; then
-   log "Cleaning up the data directory from previous run at $DDIR"
-   rm -rf ${SDIR}/data
    rm -rf ${SDIR}/common
    rm -rf ${SDIR}/docker
 fi
 mkdir -p ${CDIR}/logs
 mkdir -p ${SDIR}/docker
 # Create the docker-compose file
-
 ${SDIR}/scripts/makeDocker.sh main
-source ${SDIR}/scripts/env.sh "mega" "sharaga" 3
+${SDIR}/scripts/makeDocker.sh createFabricRunner
+
+source ${SDIR}/scripts/env.sh "olp" "mercedes" 3
 ${SDIR}/scripts/makeDocker.sh createSingleOrganization
 
 # Create the docker containers
 log "Creating docker containers ..."
 docker-compose -f ${SDIR}/docker/docker-compose.yaml up -d
- 
+docker-compose -f ${SDIR}/docker/docker-compose-setup.yaml up -d
+
 # Wait for the setup container to complete
 dowait "the 'setup' to finish registering identities, creating the genesis block and other artifacts" 90 $SDIR/$SETUP_LOGFILE $SDIR/$SETUP_SUCCESS_FILE
 

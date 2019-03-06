@@ -48,10 +48,10 @@ export DATA=data
 export COMMON=common
 
 # The path to the genesis block
-export GENESIS_BLOCK_FILE=/$DATA/crypto${RANDOM_NUMBER}/genesis.block
+export GENESIS_BLOCK_FILE=/private/crypto${RANDOM_NUMBER}/genesis.block
 
 # The path to a channel transaction
-export CHANNEL_TX_FILE=/$DATA/crypto${RANDOM_NUMBER}/channel${RANDOM_NUMBER}.tx
+export CHANNEL_TX_FILE=/private/crypto${RANDOM_NUMBER}/channel${RANDOM_NUMBER}.tx
 
 # Name of test channel
 export CHANNEL_NAME="channel${RANDOM_NUMBER}"
@@ -157,30 +157,31 @@ function initOrdererVars {
       exit 1
    fi
    initOrgVars $1
+   ORG=$1
    NUM=$2
    ORDERER_HOST=orderer${NUM}-${ORG}
    ORDERER_NAME=orderer${NUM}-${ORG}
    ORDERER_PASS=${ORDERER_NAME}pw
    ORDERER_NAME_PASS=${ORDERER_NAME}:${ORDERER_PASS}
    ORDERER_LOGFILE=$LOGDIR/${ORDERER_NAME}.log
-   MYHOME=/etc/hyperledger/orderer
-
-   export FABRIC_CA_CLIENT=$MYHOME
+   export FABRIC_CA_CLIENT=$ORDERER_HOME
    export ORDERER_GENERAL_LOGLEVEL=debug
    export ORDERER_GENERAL_LISTENADDRESS=0.0.0.0
    export ORDERER_GENERAL_GENESISMETHOD=file
    export ORDERER_GENERAL_GENESISFILE=$GENESIS_BLOCK_FILE
    export ORDERER_GENERAL_LOCALMSPID=$ORG_MSP_ID
-   export ORDERER_GENERAL_LOCALMSPDIR=$MYHOME/msp
    # enabled TLS
    export ORDERER_GENERAL_TLS_ENABLED=true
-   export TLSDIR=$MYHOME/tls
+   export TLSDIR=$ORDERER_HOME/tls
    export ORDERER_GENERAL_TLS_PRIVATEKEY=$TLSDIR/server.key
    export ORDERER_GENERAL_TLS_CERTIFICATE=$TLSDIR/server.crt
-   export ORDERER_GENERAL_TLS_ROOTCAS=[$CA_CHAINFILE]
+   export ORDERER_GENERAL_TLS_ROOTCAS=$CA_CHAINFILE
+   export CORE_ORDERER_TLS_CLIENTCERT_FILE=$TLSDIR/$ORDERER_NAME-cli-client.crt
+   export CORE_ORDERER_TLS_CLIENTKEY_FILE=$TLSDIR/$ORDERER_NAME-cli-client.key
 }
 
 function genClientTLSCert {
+   set -x
    if [ $# -ne 3 ]; then
       echo "Usage: genClientTLSCert <host name> <cert file> <key file>: $*"
       exit 1
@@ -191,9 +192,12 @@ function genClientTLSCert {
    KEY_FILE=$3
 
    # Get a client cert
-   fabric-ca-client enroll -d --enrollment.profile tls -u $ENROLLMENT_URL -M $TLSDIR --csr.hosts $HOST_NAME
-   mv $TLSDIR/keystore/* $KEY_FILE
-   mv $TLSDIR/signcerts/* $CERT_FILE
+   fabric-ca-client enroll -d --enrollment.profile tls -u $ENROLLMENT_URL -M /tmp/tls --csr.hosts $HOST_NAME
+   # Copy the TLS key and cert to the appropriate place
+   mkdir -p $TLSDIR
+   mv /tmp/tls/keystore/* $KEY_FILE
+   mv /tmp/tls/signcerts/* $CERT_FILE
+   rm -rf /tmp/tls/*
 }
 
 # initPeerVars <ORG> <NUM>
@@ -209,10 +213,8 @@ function initPeerVars {
    PEER_PASS=${PEER_NAME}pw
    PEER_NAME_PASS=${PEER_NAME}:${PEER_PASS}
    PEER_LOGFILE=$LOGDIR/${PEER_NAME}.log
-   MYHOME=/opt/gopath/src/github.com/hyperledger/fabric/peer
-   TLSDIR=$MYHOME/tls
-
-   export FABRIC_CA_CLIENT=$MYHOME
+   export TLSDIR=$PEER_HOME/tls
+   export FABRIC_CA_CLIENT=$FABRIC_CA_CLIENT_HOME
    export CORE_PEER_ID=$PEER_HOST
    export CORE_PEER_ADDRESS=$PEER_HOST:7051
    export CORE_PEER_LOCALMSPID=$ORG_MSP_ID
@@ -221,13 +223,13 @@ function initPeerVars {
    # bridge network as the peers
    # https://docs.docker.com/compose/networking/
    export CORE_VM_DOCKER_HOSTCONFIG_NETWORKMODE=net_${NETWORK}
-   # export CORE_LOGGING_LEVEL=ERROR
+   export CORE_LOGGING_LEVEL=INFO
    export FABRIC_LOGGING_SPEC=INFO
    export CORE_PEER_TLS_ENABLED=true
    export CORE_PEER_TLS_CLIENTAUTHREQUIRED=true
    export CORE_PEER_TLS_ROOTCERT_FILE=$CA_CHAINFILE
-   #export CORE_PEER_TLS_CLIENTCERT_FILE=/$DATA/tls/$PEER_NAME-cli-client.crt
-   #export CORE_PEER_TLS_CLIENTKEY_FILE=/$DATA/tls/$PEER_NAME-cli-client.key
+   export CORE_PEER_TLS_CLIENTCERT_FILE=$TLSDIR/$PEER_NAME-cli-client.crt
+   export CORE_PEER_TLS_CLIENTKEY_FILE=$TLSDIR/$PEER_NAME-cli-client.key
    export CORE_PEER_PROFILE_ENABLED=true
    # gossip variables
    export CORE_PEER_GOSSIP_USELEADERELECTION=true
@@ -240,7 +242,7 @@ function initPeerVars {
    export ORDERER_CONN_ARGS="$ORDERER_PORT_ARGS --keyfile $CORE_PEER_TLS_CLIENTKEY_FILE --certfile $CORE_PEER_TLS_CLIENTCERT_FILE"
 }
 
-# Switch to the current org's admin identity.  Enroll if not previously enrolled.
+# Switch to the current org's admin identity. Enroll if not previously enrolled.
 function switchToAdminIdentity {
    set -ex
    if [ ! -d $ORG_ADMIN_HOME ]; then
@@ -257,18 +259,17 @@ function switchToAdminIdentity {
          cp $ORG_ADMIN_HOME/msp/signcerts/* $ORG_ADMIN_HOME/msp/admincerts
       fi
    fi
-   #export CORE_PEER_MSPCONFIGPATH=$ORG_ADMIN_HOME/msp
    set +ex
 }
 
 # Switch to the current org's user identity.  Enroll if not previously enrolled.
 function switchToUserIdentity {
    set -ex
-   export FABRIC_CA_CLIENT_HOME=/etc/hyperledger/fabric/orgs/$ORG/user
-   #export CORE_PEER_MSPCONFIGPATH=$FABRIC_CA_CLIENT_HOME/msp
+   export FABRIC_CA_CLIENT_HOME=/etc/hyperledger/fabric/orgs/$1/user
+   export CORE_PEER_MSPCONFIGPATH=$FABRIC_CA_CLIENT_HOME/msp
    if [ ! -d $FABRIC_CA_CLIENT_HOME ]; then
       dowait "$CA_NAME to start" 60 $CA_LOGFILE $CA_CHAINFILE
-      log "Enrolling user for organization $ORG with home directory $FABRIC_CA_CLIENT_HOME ..."
+      log "Enrolling user for organization $1 with home directory $FABRIC_CA_CLIENT_HOME ..."
       export FABRIC_CA_CLIENT_TLS_CERTFILES=$CA_CHAINFILE
       fabric-ca-client enroll -d -u https://$USER_NAME:$USER_PASS@$CA_HOST:7054
       # Set up admincerts directory if required
@@ -309,7 +310,7 @@ function copyAdminCert {
    if $ADMINCERTS; then
       dstDir=$1/admincerts
       mkdir -p $dstDir
-      dowait "$ORG administator to enroll" 60 $SETUP_LOGFILE $ORG_ADMIN_CERT
+      dowait "$ORGANIZATION administator to enroll" 60 $SETUP_LOGFILE $ORG_ADMIN_CERT
       cp $ORG_ADMIN_CERT $dstDir
    fi
 }
@@ -326,16 +327,6 @@ function finishMSPSetup {
       if [ -d $1/intermediatecerts ]; then
          mkdir $1/tlsintermediatecerts
          cp $1/intermediatecerts/* $1/tlsintermediatecerts
-         cp $1/intermediatecerts/* /usr/local/share/ca-certificates/
-         mkdir -p /usr/local/share/ca-certificates/HyperledgerCerts
-         cp $ROOT_CA_CERTFILE /usr/local/share/ca-certificates/HyperledgerCerts/
-         cp $INT_CA_CHAINFILE /usr/local/share/ca-certificates/HyperledgerCerts/
-         cp $CORE_PEER_TLS_CLIENTCERT_FILE /usr/local/share/ca-certificates/HyperledgerCerts/
-         cp $ORDERER_GENERAL_TLS_CERTIFICATE /usr/local/share/ca-certificates/HyperledgerCerts/
-         chmod 755 /usr/local/share/ca-certificates/HyperledgerCerts
-         chmod 644 /usr/local/share/ca-certificates/HyperledgerCerts/*
-         ls -la /usr/local/share/ca-certificates/HyperledgerCerts
-         update-ca-certificates
       fi
    fi
 }
