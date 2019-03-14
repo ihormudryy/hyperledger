@@ -43,14 +43,14 @@ if [ "$chaincodeImages" != "" ]; then
 fi
 
 # Start with a clean data directory
-DDIR=${SDIR}/${DATA}
 CDIR=${SDIR}/${COMMON}
-if [ -d ${DDIR} ]; then
-   rm -rf ${SDIR}/common
+if [ -d ${SDIR}/logs ]; then
+   rm -rf ${SDIR}/logs
    rm -rf ${SDIR}/docker
 fi
-mkdir -p ${CDIR}/logs
 mkdir -p ${SDIR}/docker
+mkdir -p ${SDIR}/logs
+
 # Create the docker-compose file
 ${SDIR}/scripts/makeDocker.sh main
 ${SDIR}/scripts/makeDocker.sh createFabricRunner

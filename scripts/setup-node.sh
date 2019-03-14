@@ -15,11 +15,12 @@ source $SRC/env.sh $ORDERER_ORGS "$PEER_ORGS" $NUM_PEERS
 
 function setupOrderer {
    log "Beginning building channel artifacts ..."
-   mkdir -p /private/crypto${RANDOM_NUMBER}
+   mkdir -p /${COMMON}/crypto${RANDOM_NUMBER}
    mkdir -p $ORDERER_GENERAL_LOCALMSPDIR
    registerOrdererIdentities
    getCACerts
    genClientTLSCert $ORDERER_NAME $ORDERER_GENERAL_TLS_CERTIFICATE $ORDERER_GENERAL_TLS_PRIVATEKEY
+   genClientTLSCert $ORDERER_NAME $CORE_ORDERER_TLS_CLIENTCERT_FILE $CORE_ORDERER_TLS_CLIENTKEY_FILE 
    enroll $ORDERER_GENERAL_LOCALMSPDIR
    sleep 10
    makeConfigTxYaml
@@ -28,9 +29,8 @@ function setupOrderer {
 
 function setupPeer {
    log "Setting up peer ..."
-   mkdir -p /data
    mkdir -p $CORE_PEER_MSPCONFIGPATH
-   mkdir -p /private/tls
+   mkdir -p /${COMMON}/tls
    registerPeerIdentities
    getCACerts
    generateTLSPair $PEER_NAME $CORE_PEER_TLS_CERT_FILE $CORE_PEER_TLS_KEY_FILE
@@ -44,12 +44,7 @@ function generateTLSPair {
    log "Enrolling tls profile into intermediate CA"
    genClientTLSCert $1 $2 $3
    genClientTLSCert $1 $TLSDIR/$1-client.crt $TLSDIR/$1-client.key
-   genClientTLSCert $1 /private/tls/$1-cli-client.crt /private/tls/$1-cli-client.key
-}
-
-function generateClientTLScert {
-   genClientTLSCert $1 $2 $3
-   genClientTLSCert $1 $TLSDIR/$1-cli-client.crt $TLSDIR/$1-cli-client.key
+   genClientTLSCert $1 /${COMMON}/tls/$1-cli-client.crt /${COMMON}/tls/$1-cli-client.key
 }
 
 function enroll {
@@ -109,7 +104,7 @@ function printOrg {
    echo "
   - &$ORG_CONTAINER_NAME
 
-    Name: $ORGANIZATION
+    Name: $ORG_CONTAINER_NAME
 
     # ID to load the MSP definition as
     ID: $ORG_MSP_ID
@@ -172,6 +167,20 @@ Application: &ApplicationDefaults
     # Organizations is the list of orgs which are defined as participants on
     # the application side of the network
     Organizations:
+    
+    # Policies defines the set of policies at this level of the config tree
+    # For Application policies, their canonical path is
+    #   /Channel/Application/<PolicyName>
+    Policies:
+        Readers:
+            Type: ImplicitMeta
+            Rule: "ANY Readers"
+        Writers:
+            Type: ImplicitMeta
+            Rule: "ANY Writers"
+        Admins:
+            Type: ImplicitMeta
+            Rule: "MAJORITY Admins"
 "
    echo "
 ################################################################################
@@ -266,9 +275,9 @@ Profiles:
       echo "        - *${ORG_CONTAINER_NAME}"
    done
 
-   } > /private/crypto${RANDOM_NUMBER}/configtx.yaml
+   } > /${COMMON}/crypto${RANDOM_NUMBER}/configtx.yaml
    # Copy it to the data directory to make debugging easier
-   cp /private/crypto${RANDOM_NUMBER}/configtx.yaml /etc/hyperledger/fabric/
+   cp /${COMMON}/crypto${RANDOM_NUMBER}/configtx.yaml /etc/hyperledger/fabric/
 }
 
 function generateChannelArtifacts() {
@@ -294,8 +303,8 @@ function generateChannelArtifacts() {
   for ORG in $PEER_ORGS; do
      initOrgVars $ORG
      log "Generating anchor peer update transaction for $ORG at $ANCHOR_TX_FILE"
-     #configtxgen -profile OrgsChannel -outputAnchorPeersUpdate $ANCHOR_TX_FILE \
-     #            -channelID $CHANNEL_NAME -asOrg $ORG
+     configtxgen -profile OrgsChannel -outputAnchorPeersUpdate $ANCHOR_TX_FILE \
+                 -channelID $CHANNEL_NAME -asOrg $ORG
      if [ "$?" -ne 0 ]; then
         fatal "Failed to generate anchor peer update for $ORG"
      fi

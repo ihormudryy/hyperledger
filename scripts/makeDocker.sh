@@ -25,7 +25,7 @@ URL_FABRIC="https://nexus.hyperledger.org/content/repositories/releases/org/hype
 SDIR=$(dirname "$0")
 DOCKER_DIR="$SDIR/../docker"
 SCRIPTS_DIR="./../scripts"
-DATA_DIR="./../data"
+LOGS_DIR="./../logs"
 COMMON_DIR="./../common"
 
 # Set samples directory relative to this script
@@ -271,9 +271,9 @@ function writeSetupFabric {
     tty: true
     volumes:
       - ${SCRIPTS_DIR}:/scripts
-      - ${COMMON_DIR}:/common
+      - ${LOGS_DIR}:/logs
       - ${SAMPLES_DIR}:/opt/gopath/src/github.com/hyperledger/fabric-samples
-      - private:/private
+      - ${COMMON}:/${COMMON}
     environment:
       - RANDOM_NUMBER="$RANDOM_NUMBER"
       - PEER_HOME=$MYHOME
@@ -384,7 +384,8 @@ function writeRootCA {
       - RANDOM_NUMBER="$RANDOM_NUMBER"
     volumes:
       - ${SCRIPTS_DIR}:/scripts
-      - ${COMMON_DIR}:/common
+      - ${LOGS_DIR}:/logs
+      - ${COMMON}:/${COMMON}
     networks:
       - $NETWORK
 "
@@ -413,7 +414,8 @@ function writeIntermediateCA {
       - RANDOM_NUMBER="$RANDOM_NUMBER"
     volumes:
       - ${SCRIPTS_DIR}:/scripts
-      - ${COMMON_DIR}:/common
+      - ${LOGS_DIR}:/logs
+      - ${COMMON}:/${COMMON}
     networks:
       - $NETWORK
     depends_on:
@@ -446,9 +448,9 @@ function writeOrderer {
       - ORDERER_GENERAL_TLS_ROOTCAS=$CA_CHAINFILE
       - ORDERER_GENERAL_TLS_CLIENTAUTHREQUIRED=true
       - ORDERER_GENERAL_TLS_CLIENTROOTCAS=$CA_CHAINFILE
-      - ORDERER_GENERAL_LOGLEVEL=INFO
+      - ORDERER_GENERAL_LOGLEVEL=DEBUG
       - ORDERER_DEBUG_BROADCASTTRACEDIR=$LOGDIR
-      - FABRIC_LOGGING_SPEC=INFO
+      - FABRIC_LOGGING_SPEC=DEBUG
       - ORGANIZATION=$ORG
       - COUNT=$COUNT
       - ORG_ADMIN_CERT=$ORG_ADMIN_CERT
@@ -458,8 +460,8 @@ function writeOrderer {
     command: /bin/bash -c '/scripts/start-orderer.sh 2>&1 | tee /$ORDERER_LOGFILE'
     volumes:
       - ${SCRIPTS_DIR}:/scripts
-      - ${COMMON_DIR}:/common
-      - private:/private
+      - ${LOGS_DIR}:/logs
+      - ${COMMON}:/${COMMON}
     networks:
       - $NETWORK
     depends_on:
@@ -522,9 +524,9 @@ function writePeer {
     command: /bin/bash -c '/scripts/start-peer.sh 2>&1 | tee /$PEER_LOGFILE'
     volumes:
       - ${SCRIPTS_DIR}:/scripts
-      - ${COMMON_DIR}:/common
+      - ${LOGS_DIR}:/logs
       - /var/run:/host/var/run
-      - private:/private
+      - ${COMMON}:/${COMMON}
     networks:
       - $NETWORK
 "
@@ -574,7 +576,7 @@ networks:
         - subnet: ${SUBNET}
 
 volumes:
-  private:
+  ${COMMON}:
 
 services:
 "

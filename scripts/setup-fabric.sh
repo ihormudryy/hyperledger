@@ -288,7 +288,7 @@ function generateChannelArtifacts() {
      configtxgen -profile OrgsChannel -outputAnchorPeersUpdate $ANCHOR_TX_FILE \
                  -channelID $CHANNEL_NAME -asOrg $ORG
      if [ "$?" -ne 0 ]; then
-        fatal "Failed to generate anchor peer update for $ORG"
+        #fatal "Failed to generate anchor peer update for $ORG"
      fi
   done
 }

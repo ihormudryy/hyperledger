@@ -8,21 +8,21 @@
 CHAINCODE_NAME="abac"
 CHAINCODE_PATH="abac/go"
 CHAINCODE_VERSION="1.0"
-LOG_FILE_NAME=/common/logs/chaincode-${CHAINCODE_NAME}-install.log
+LOG_FILE_NAME=/${COMMON}/chaincode-${CHAINCODE_NAME}-install.log
 
 function main {
    set -x
 
    # Set ORDERER_PORT_ARGS to the args needed to communicate with the 1st orderer
    IFS=', ' read -r -a OORGS <<< "$ORDERER_ORGS"
+   export FABRIC_LOGGING_SPEC=info
    initOrdererVars ${OORGS[0]} 1
-   export ORDERER_PORT_ARGS="-o $ORDERER_HOST:7050 --tls --cafile $CA_CHAINFILE --clientauth"
 
    # Convert PEER_ORGS to an array named PORGS
    IFS=', ' read -r -a PORGS <<< "$PEER_ORGS"
 
    # Create the channel
-   createChannel
+   peer channel create -c $CHANNEL_NAME -f $CHANNEL_TX_FILE $ORDERER_CONN_ARGS
 
    # All peers join the channel
    for ORG in $PEER_ORGS; do
@@ -103,10 +103,12 @@ function main {
 
 # Enroll as a peer admin and create the channel
 function createChannel {
-   initPeerVars ${PORGS[0]} 1
+   #initPeerVars ${PORGS[0]} 1
    #switchToAdminIdentity
-   logr "Creating channel '$CHANNEL_NAME' on $ORDERER_HOST ..."
-   peer channel create --logging-level=DEBUG -c $CHANNEL_NAME -f $CHANNEL_TX_FILE $ORDERER_CONN_ARGS
+   #logr "Creating channel '$CHANNEL_NAME' on $ORDERER_HOST ..."
+   #echo "peer channel create --logging-level=DEBUG -c $CHANNEL_NAME -f $CHANNEL_TX_FILE $ORDERER_CONN_ARGS"
+   #peer channel create -c $CHANNEL_NAME -f $CHANNEL_TX_FILE $ORDERER_CONN_ARGS
+   echo
 }
 
 # Enroll as a fabric admin and join the channel

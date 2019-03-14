@@ -43,15 +43,17 @@ export ADMINCERTS=true
 # Number of orderer nodes
 export NUM_ORDERERS=1
 
-export DATA=data
 # The volume mount to share data between containers
-export COMMON=common
+export COMMON=private
+
+# Log directory
+export LOGDIR=/logs
 
 # The path to the genesis block
-export GENESIS_BLOCK_FILE=/private/crypto${RANDOM_NUMBER}/genesis.block
+export GENESIS_BLOCK_FILE=/${COMMON}/crypto${RANDOM_NUMBER}/genesis.block
 
 # The path to a channel transaction
-export CHANNEL_TX_FILE=/private/crypto${RANDOM_NUMBER}/channel${RANDOM_NUMBER}.tx
+export CHANNEL_TX_FILE=/${COMMON}/crypto${RANDOM_NUMBER}/channel${RANDOM_NUMBER}.tx
 
 # Name of test channel
 export CHANNEL_NAME="channel${RANDOM_NUMBER}"
@@ -62,10 +64,6 @@ export QUERY_TIMEOUT=30
 # Setup timeout in seconds (for setup container to complete)
 export SETUP_TIMEOUT=120
 
-# Log directory
-export LOGDIR=$COMMON/logs
-export LOGPATH=/$LOGDIR
-
 # Name of a the file to create when setup is successful
 export SETUP_SUCCESS_FILE=${LOGDIR}/setup.successful
 # The setup container's log file
@@ -73,9 +71,11 @@ export SETUP_LOGFILE=${LOGDIR}/setup.log
 
 # The run container's log file
 export RUN_LOGFILE=${LOGDIR}/run.log
+
 # The run container's summary log file
 export RUN_SUMFILE=${LOGDIR}/run.sum
-export RUN_SUMPATH="/${RUN_SUMFILE}"
+export RUN_SUMPATH="${RUN_SUMFILE}"
+
 # Run success and failure files
 export RUN_SUCCESS_FILE=${LOGDIR}/run.success
 export RUN_FAIL_FILE=${LOGDIR}/run.fail
@@ -133,7 +133,7 @@ function initOrgVars {
    ORG_MSP_ID=${ORG}MSP
    ORG_MSP_DIR=/${COMMON}/orgs/${ORG}/msp
    ORG_ADMIN_CERT=${ORG_MSP_DIR}/admincerts/cert.pem
-   ORG_ADMIN_HOME=/${DATA}/orgs/${ORG}/admin
+   ORG_ADMIN_HOME=/${COMMON}/orgs/${ORG}/admin
 
    if test "$USE_INTERMEDIATE_CA" = "true"; then
       CA_NAME=$INT_CA_NAME
@@ -154,7 +154,7 @@ function initOrgVars {
 function initOrdererVars {
    if [ $# -ne 2 ]; then
       echo "Usage: initOrdererVars <ORG> <NUM>"
-      exit 1
+      #exit 1
    fi
    initOrgVars $1
    ORG=$1
@@ -176,8 +176,11 @@ function initOrdererVars {
    export ORDERER_GENERAL_TLS_PRIVATEKEY=$TLSDIR/server.key
    export ORDERER_GENERAL_TLS_CERTIFICATE=$TLSDIR/server.crt
    export ORDERER_GENERAL_TLS_ROOTCAS=$CA_CHAINFILE
-   export CORE_ORDERER_TLS_CLIENTCERT_FILE=$TLSDIR/$ORDERER_NAME-cli-client.crt
-   export CORE_ORDERER_TLS_CLIENTKEY_FILE=$TLSDIR/$ORDERER_NAME-cli-client.key
+   export CORE_ORDERER_TLS_CLIENTCERT_FILE=/${COMMON}/tls/$ORDERER_NAME-cli-client.crt
+   export CORE_ORDERER_TLS_CLIENTKEY_FILE=/${COMMON}/tls/$ORDERER_NAME-cli-client.key
+   export ORDERER_PORT_ARGS="-o $ORDERER_HOST:7050 --tls --cafile $CA_CHAINFILE --clientauth"
+   export ORDERER_CONN_ARGS="$ORDERER_PORT_ARGS --keyfile $CORE_ORDERER_TLS_CLIENTKEY_FILE --certfile $CORE_ORDERER_TLS_CLIENTCERT_FILE"
+   echo $ORDERER_CONN_ARGS
 }
 
 function genClientTLSCert {
