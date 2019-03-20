@@ -5,52 +5,47 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
-#CHAINCODE_NAME="abac"
-#CHAINCODE_PATH="abac/go"
-#CHAINCODE_VERSION="1.0"
+SRC=$(dirname "$0")
+source $SRC/env.sh $ORDERER_ORGS "$PEER_ORGS" $NUM_PEERS
+source $SRC/make-config-tx.sh
 LOG_FILE_NAME=/${COMMON}/chaincode-${CHAINCODE_NAME}-install.log
 
-function main {
-   # Set ORDERER_PORT_ARGS to the args needed to communicate with the 1st orderer
-   IFS=', ' read -r -a OORGS <<< "$ORDERER_ORGS"
-   initOrdererVars ${OORGS[0]} 1
-   IFS=', ' read -r -a PORGS <<< "$PEER_ORGS"
-
+function testABAC {
+   makeConfigTxYaml /${COMMON}
+   generateChannelTx 
    createChannel
-
    # All peers join, update the channel and install chainncode
    for ORG in $PEER_ORGS; do
       local COUNT=1
       while [[ "$COUNT" -le $NUM_PEERS ]]; do
          joinChannel $ORG $COUNT
          installChaincode $ORG $COUNT
+         instantiateChaincode $ORG $COUNT '{"Args":["init","a","100","b","200"]}'
+         chaincodeQuery $ORG $COUNT '{"Args":["query","a"]}' 100
+         invokeChaincode $ORG $COUNT '{"Args":["invoke","a","b","10"]}'
+         chaincodeQuery $ORG $COUNT '{"Args":["query","a"]}' 90
          COUNT=$((COUNT+1))
       done
    done
    
    # Query chaincode from the 1st peer of the 1st org
    updateChannel ${PORGS[0]} 1 
-   instantiateChaincode ${PORGS[0]} 1 '{"Args":["init","a","100","b","200"]}'
-
-   chaincodeQuery ${PORGS[0]} 1 '{"Args":["query","a"]}' 100
-   invokeChaincode ${PORGS[0]} 1 '{"Args":["invoke","a","b","10"]}'
-   chaincodeQuery ${PORGS[1]} 2 '{"Args":["query","a"]}' 90
    fetchConfigBlock
-   # Create config update envelope with CRL and update the config block of the channel
    createConfigUpdatePayloadWithCRL
-   initPeerVars ${PORGS[1]} 1
-   switchToUserIdentity
    #updateConfigBlock
    logr "Congratulations! The tests ran successfully."
 }
 
 # Enroll as a peer admin and create the channel
 function createChannel {
+   IFS=', ' read -r -a OORGS <<< "$ORDERER_ORGS"
+   IFS=', ' read -r -a PORGS <<< "$PEER_ORGS"
+   initOrdererVars ${OORGS[0]} 1
    initPeerVars ${PORGS[0]} 1
    switchToAdminIdentity
-   logr "Creating channel '$CHANNEL_NAME' on $ORDERER_HOST ..."
    export CORE_PEER_MSPCONFIGPATH=$ORG_ADMIN_HOME/msp
-   peer channel create -c $CHANNEL_NAME -f $CHANNEL_TX_FILE $ORDERER_CONN_ARGS  --outputBlock $BLOCK_FILE
+   logr "Creating channel '$CHANNEL_NAME' on $ORDERER_HOST ..."
+   peer channel create -c $CHANNEL_NAME -f $CHANNEL_TX_FILE $ORDERER_CONN_ARGS --outputBlock $BLOCK_FILE
 }
 
 # Enroll as a fabric admin and join the channel
@@ -59,6 +54,9 @@ function joinChannel {
       fatalr "Usage: joinChannel <ORG> <NUM>"
    fi
    set +e
+   IFS=', ' read -r -a OORGS <<< "$ORDERER_ORGS"
+   initOrdererVars ${OORGS[0]} 1
+   IFS=', ' read -r -a PORGS <<< "$PEER_ORGS"
    initPeerVars $1 $2
    switchToAdminIdentity
    local COUNT=1
@@ -85,6 +83,9 @@ function chaincodeQuery {
       fatalr "Usage: chaincodeQuery <ORG> <NUM> <Constructor message> <expected-value>"
    fi
    set +e
+   IFS=', ' read -r -a OORGS <<< "$ORDERER_ORGS"
+   initOrdererVars ${OORGS[0]} 1
+   IFS=', ' read -r -a PORGS <<< "$PEER_ORGS"
    initPeerVars $1 $2
    switchToUserIdentity $1
    local ARGS=$3
@@ -168,6 +169,9 @@ function updateChannel {
    if [ $# -ne 2 ]; then
       fatalr "Usage: updateChannel <ORG> <NUM>"
    fi
+   IFS=', ' read -r -a OORGS <<< "$ORDERER_ORGS"
+   initOrdererVars ${OORGS[0]} 1
+   IFS=', ' read -r -a PORGS <<< "$PEER_ORGS"
    initPeerVars $1 $2
    switchToAdminIdentity
    logr "Updating anchor peers for $PEER_HOST ..."
@@ -182,6 +186,9 @@ function installChaincode {
    if [ $# -ne 2 ]; then
       fatalr "Usage: installChaincode <ORG> <NUM>"
    fi
+   FS=', ' read -r -a OORGS <<< "$ORDERER_ORGS"
+   initOrdererVars ${OORGS[0]} 1
+   IFS=', ' read -r -a PORGS <<< "$PEER_ORGS"
    initPeerVars $1 $2
    switchToAdminIdentity
    logr "Installing chaincode on $PEER_HOST ..."
@@ -195,6 +202,9 @@ function instantiateChaincode {
    if [ $# -ne 3 ]; then
       fatalr "Usage: instantiateChaincode <ORG> <NUM> <Constructor message> "
    fi
+   IFS=', ' read -r -a OORGS <<< "$ORDERER_ORGS"
+   initOrdererVars ${OORGS[0]} 1
+   IFS=', ' read -r -a PORGS <<< "$PEER_ORGS"
    makePolicy
    initPeerVars $1 $2
    switchToAdminIdentity
@@ -212,6 +222,9 @@ function invokeChaincode {
    if [ $# -ne 3 ]; then
       fatalr "Usage: invokeChaincode <ORG> <NUM> <Constructor message> "
    fi
+   IFS=', ' read -r -a OORGS <<< "$ORDERER_ORGS"
+   initOrdererVars ${OORGS[0]} 1
+   IFS=', ' read -r -a PORGS <<< "$PEER_ORGS"
    initPeerVars $1 $2
    switchToUserIdentity $1
    logr "Sending invoke transaction to $PEER_HOST ..."
@@ -220,6 +233,29 @@ function invokeChaincode {
       -n ${CHAINCODE_NAME} \
       -c $3 \
       $ORDERER_CONN_ARGS
+}
+
+function generateChannelTx {
+   which configtxgen
+   if [ "$?" -ne 0 ]; then
+      fatal "configtxgen tool not found. exiting"
+   fi
+
+   log "Generating channel configuration transaction at $CHANNEL_TX_FILE"
+   configtxgen -profile OrgsChannel -outputCreateChannelTx $CHANNEL_TX_FILE -channelID $CHANNEL_NAME
+   if [ "$?" -ne 0 ]; then
+      fatal "Failed to generate channel configuration transaction"
+   fi
+
+   for ORG in $PEER_ORGS; do
+      initOrgVars $ORG
+      log "Generating anchor peer update transaction for $ORG at $ANCHOR_TX_FILE"
+      configtxgen -profile OrgsChannel -outputAnchorPeersUpdate $ANCHOR_TX_FILE \
+                  -channelID $CHANNEL_NAME -asOrg $ORG
+      if [ "$?" -ne 0 ]; then
+         fatal "Failed to generate anchor peer update for $ORG"
+      fi
+   done
 }
 
 function fetchConfigBlock {

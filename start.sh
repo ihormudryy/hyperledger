@@ -22,6 +22,7 @@ export FABRIC_TAG=1.4.0
 SDIR=$(dirname "$0")
 cd ${SDIR}
 export RANDOM_NUMBER=${RANDOM}
+echo "First random number: $RANDOM_NUMBER"
 source ${SDIR}/scripts/env.sh "here" "consumer provider" 3
 
 # Delete docker containers
@@ -56,6 +57,7 @@ ${SDIR}/scripts/makeDocker.sh main
 ${SDIR}/scripts/makeDocker.sh createFabricRunner
 
 export RANDOM_NUMBER=${RANDOM}
+echo "Second random number: $RANDOM_NUMBER"
 source ${SDIR}/scripts/env.sh "olp" "mercedes" 3
 ${SDIR}/scripts/makeDocker.sh createSingleOrganization
 
