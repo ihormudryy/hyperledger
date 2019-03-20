@@ -58,6 +58,9 @@ export CHANNEL_TX_FILE=/${COMMON}/crypto${RANDOM_NUMBER}/channel${RANDOM_NUMBER}
 # Name of test channel
 export CHANNEL_NAME="channel${RANDOM_NUMBER}"
 
+# Block name
+export BLOCK_FILE=/${COMMON}/crypto${RANDOM_NUMBER}/${CHANNEL_NAME}.block
+
 # Query timeout in seconds
 export QUERY_TIMEOUT=30
 
@@ -134,7 +137,7 @@ function initOrgVars {
    ORG_MSP_DIR=/${COMMON}/orgs/${ORG}/msp
    ORG_ADMIN_CERT=${ORG_MSP_DIR}/admincerts/cert.pem
    ORG_ADMIN_HOME=/${COMMON}/orgs/${ORG}/admin
-
+   ORG_USER_HOME=/${COMMON}/orgs/${ORG}/user
    if test "$USE_INTERMEDIATE_CA" = "true"; then
       CA_NAME=$INT_CA_NAME
       CA_HOST=$INT_CA_HOST
@@ -176,24 +179,26 @@ function initOrdererVars {
    export ORDERER_GENERAL_TLS_PRIVATEKEY=$TLSDIR/server.key
    export ORDERER_GENERAL_TLS_CERTIFICATE=$TLSDIR/server.crt
    export ORDERER_GENERAL_TLS_ROOTCAS=$CA_CHAINFILE
+   export CORE_ORDERER_TLS_CERT_FILE=/${COMMON}/tls/$ORDERER_NAME-client.crt
+   export CORE_ORDERER_TLS_KEY_FILE=/${COMMON}/tls/$ORDERER_NAME-client.key
    export CORE_ORDERER_TLS_CLIENTCERT_FILE=/${COMMON}/tls/$ORDERER_NAME-cli-client.crt
    export CORE_ORDERER_TLS_CLIENTKEY_FILE=/${COMMON}/tls/$ORDERER_NAME-cli-client.key
-   export ORDERER_PORT_ARGS="-o $ORDERER_HOST:7050 --tls --cafile $CA_CHAINFILE --clientauth"
-   export ORDERER_CONN_ARGS="$ORDERER_PORT_ARGS --keyfile $CORE_ORDERER_TLS_CLIENTKEY_FILE --certfile $CORE_ORDERER_TLS_CLIENTCERT_FILE"
-   echo $ORDERER_CONN_ARGS
+   export ORDERER_PORT_ARGS="-o $ORDERER_HOST:7050 \
+   --tls --cafile $CA_CHAINFILE \
+   --clientauth"
+   export ORDERER_CONN_ARGS="$ORDERER_PORT_ARGS \
+   --keyfile $CORE_ORDERER_TLS_CLIENTKEY_FILE \
+   --certfile $CORE_ORDERER_TLS_CLIENTCERT_FILE"
 }
 
 function genClientTLSCert {
-   set -x
    if [ $# -ne 3 ]; then
       echo "Usage: genClientTLSCert <host name> <cert file> <key file>: $*"
       exit 1
    fi
-
    HOST_NAME=$1
    CERT_FILE=$2
    KEY_FILE=$3
-
    # Get a client cert
    fabric-ca-client enroll -d --enrollment.profile tls -u $ENROLLMENT_URL -M /tmp/tls --csr.hosts $HOST_NAME
    # Copy the TLS key and cert to the appropriate place
@@ -209,6 +214,7 @@ function initPeerVars {
       echo "Usage: initPeerVars <ORG> <NUM>: $*"
       exit 1
    fi
+   COUNT=$2
    initOrgVars $1
    NUM=$2
    PEER_HOST=peer${NUM}-${ORG}
@@ -226,7 +232,6 @@ function initPeerVars {
    # bridge network as the peers
    # https://docs.docker.com/compose/networking/
    export CORE_VM_DOCKER_HOSTCONFIG_NETWORKMODE=net_${NETWORK}
-   export CORE_LOGGING_LEVEL=INFO
    export FABRIC_LOGGING_SPEC=INFO
    export CORE_PEER_TLS_ENABLED=true
    export CORE_PEER_TLS_CLIENTAUTHREQUIRED=true
@@ -242,12 +247,13 @@ function initPeerVars {
       # Point the non-anchor peers to the anchor peer, which is always the 1st peer
       export CORE_PEER_GOSSIP_BOOTSTRAP=peer1-${ORG}:7051
    fi
-   export ORDERER_CONN_ARGS="$ORDERER_PORT_ARGS --keyfile $CORE_PEER_TLS_CLIENTKEY_FILE --certfile $CORE_PEER_TLS_CLIENTCERT_FILE"
+   export ORDERER_CONN_ARGS="$ORDERER_PORT_ARGS \
+   --keyfile $CORE_PEER_TLS_CLIENTKEY_FILE \
+   --certfile $CORE_PEER_TLS_CLIENTCERT_FILE"
 }
 
 # Switch to the current org's admin identity. Enroll if not previously enrolled.
 function switchToAdminIdentity {
-   set -ex
    if [ ! -d $ORG_ADMIN_HOME ]; then
       dowait "$CA_NAME to start" 60 $CA_LOGFILE $CA_CHAINFILE
       log "Enrolling admin '$ADMIN_NAME' with $CA_HOST ..."
@@ -258,17 +264,15 @@ function switchToAdminIdentity {
       if [ $ADMINCERTS ]; then
          mkdir -p $(dirname "${ORG_ADMIN_CERT}")
          cp $ORG_ADMIN_HOME/msp/signcerts/* $ORG_ADMIN_CERT
-         mkdir $ORG_ADMIN_HOME/msp/admincerts
+         mkdir -p $ORG_ADMIN_HOME/msp/admincerts
          cp $ORG_ADMIN_HOME/msp/signcerts/* $ORG_ADMIN_HOME/msp/admincerts
       fi
    fi
-   set +ex
 }
 
 # Switch to the current org's user identity.  Enroll if not previously enrolled.
 function switchToUserIdentity {
-   set -ex
-   export FABRIC_CA_CLIENT_HOME=/etc/hyperledger/fabric/orgs/$1/user
+   export FABRIC_CA_CLIENT_HOME=$ORG_USER_HOME
    export CORE_PEER_MSPCONFIGPATH=$FABRIC_CA_CLIENT_HOME/msp
    if [ ! -d $FABRIC_CA_CLIENT_HOME ]; then
       dowait "$CA_NAME to start" 60 $CA_LOGFILE $CA_CHAINFILE
@@ -282,7 +286,6 @@ function switchToUserIdentity {
          cp $ORG_ADMIN_HOME/msp/signcerts/* $ACDIR
       fi
    fi
-   set +ex
 }
 
 # Revokes the fabric user

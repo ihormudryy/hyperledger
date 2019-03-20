@@ -67,12 +67,13 @@ function createSingleOrganization {
       writeIntermediateFabricCA
    fi
    initOrdererVars $ORDERER_ORGS 1
-   COUNT=1
+   export COUNT=1
+   COUNTER=1
    writeOrderer
-   while [[ "$COUNT" -le $PEER_COUNT ]]; do
-      initPeerVars $ORGANIZATION $COUNT
+   while [[ "$COUNTER" -le $PEER_COUNT ]]; do
+      initPeerVars $ORGANIZATION $COUNTER
       writePeer
-      COUNT=$((COUNT+1))
+      COUNTER=$((COUNTER+1))
    done
    } > $DOCKER_DIR/docker-compose-${ORGANIZATION}.yaml
    log "Created docker-compose-${ORGANIZATION}.yaml"
@@ -275,7 +276,6 @@ function writeSetupFabric {
       - ${SAMPLES_DIR}:/opt/gopath/src/github.com/hyperledger/fabric-samples
       - ${COMMON}:/${COMMON}
     environment:
-      - RANDOM_NUMBER="$RANDOM_NUMBER"
       - PEER_HOME=$MYHOME
       - ORDERER_HOME=$MYHOME
     networks:
@@ -448,9 +448,9 @@ function writeOrderer {
       - ORDERER_GENERAL_TLS_ROOTCAS=$CA_CHAINFILE
       - ORDERER_GENERAL_TLS_CLIENTAUTHREQUIRED=true
       - ORDERER_GENERAL_TLS_CLIENTROOTCAS=$CA_CHAINFILE
-      - ORDERER_GENERAL_LOGLEVEL=DEBUG
+      - ORDERER_GENERAL_LOGLEVEL=INFO
       - ORDERER_DEBUG_BROADCASTTRACEDIR=$LOGDIR
-      - FABRIC_LOGGING_SPEC=DEBUG
+      - FABRIC_LOGGING_SPEC=INFO
       - ORGANIZATION=$ORG
       - COUNT=$COUNT
       - ORG_ADMIN_CERT=$ORG_ADMIN_CERT
@@ -507,8 +507,6 @@ function writePeer {
       - CORE_PEER_TLS_ROOTCERT_FILE=$CA_CHAINFILE
       - CORE_PEER_TLS_CLIENTAUTHREQUIRED=true
       - CORE_PEER_TLS_CLIENTROOTCAS_FILES=$CA_CHAINFILE
-      - CORE_PEER_TLS_CLIENTCERT_FILE=$MYHOME/tls/$PEER_NAME-client.crt
-      - CORE_PEER_TLS_CLIENTKEY_FILE=$MYHOME/tls/$PEER_NAME-client.key
       - CORE_PEER_GOSSIP_USELEADERELECTION=true
       - CORE_PEER_GOSSIP_ORGLEADER=false
       - CORE_PEER_GOSSIP_EXTERNALENDPOINT=$PEER_HOST:7051

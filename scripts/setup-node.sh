@@ -33,18 +33,10 @@ function setupPeer {
    mkdir -p /${COMMON}/tls
    registerPeerIdentities
    getCACerts
-   generateTLSPair $PEER_NAME $CORE_PEER_TLS_CERT_FILE $CORE_PEER_TLS_KEY_FILE
+   genClientTLSCert $PEER_NAME $CORE_PEER_TLS_CERT_FILE $CORE_PEER_TLS_KEY_FILE
+   genClientTLSCert $PEER_NAME /${COMMON}/tls/$PEER_NAME-client.crt /${COMMON}/tls/$PEER_NAME-client.key
+   genClientTLSCert $PEER_NAME /${COMMON}/tls/$PEER_NAME-cli-client.crt /${COMMON}/tls/$PEER_NAME-cli-client.key
    enroll $CORE_PEER_MSPCONFIGPATH
-}
-
-function generateTLSPair {
-   # Although a node may use the same TLS key and certificate file for both inbound and outbound TLS,
-   # we generate a different key and certificate for inbound and outbound TLS simply to show that it is permissible
-   # Generate server TLS cert and key pair for the peer
-   log "Enrolling tls profile into intermediate CA"
-   genClientTLSCert $1 $2 $3
-   genClientTLSCert $1 $TLSDIR/$1-client.crt $TLSDIR/$1-client.key
-   genClientTLSCert $1 /${COMMON}/tls/$1-cli-client.crt /${COMMON}/tls/$1-cli-client.key
 }
 
 function enroll {

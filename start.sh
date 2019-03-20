@@ -18,11 +18,11 @@
 
 set -e
 export FABRIC_TAG=1.4.0
-export RANDOM_NUMBER=${RANDOM}
 
 SDIR=$(dirname "$0")
 cd ${SDIR}
-source ${SDIR}/scripts/env.sh "here" "consumer provider" 2
+export RANDOM_NUMBER=${RANDOM}
+source ${SDIR}/scripts/env.sh "here" "consumer provider" 3
 
 # Delete docker containers
 dockerContainers=$(docker ps -a | awk '$2~/hyperledger/ {print $1}')
@@ -55,19 +55,18 @@ mkdir -p ${SDIR}/logs
 ${SDIR}/scripts/makeDocker.sh main
 ${SDIR}/scripts/makeDocker.sh createFabricRunner
 
+export RANDOM_NUMBER=${RANDOM}
 source ${SDIR}/scripts/env.sh "olp" "mercedes" 3
 ${SDIR}/scripts/makeDocker.sh createSingleOrganization
 
 # Create the docker containers
 log "Creating docker containers ..."
 docker-compose -f ${SDIR}/docker/docker-compose.yaml up -d
+docker-compose -f ${SDIR}/docker/docker-compose-mercedes.yaml up -d
 docker-compose -f ${SDIR}/docker/docker-compose-setup.yaml up -d
 
 # Wait for the setup container to complete
 dowait "the 'setup' to finish registering identities, creating the genesis block and other artifacts" 90 $SDIR/$SETUP_LOGFILE $SDIR/$SETUP_SUCCESS_FILE
-
-# Wait for the run container to start and then tails it's summary log
-#dowait "'run' to start fabric" 60 ${SDIR}/${SETUP_LOGFILE} ${SDIR}/${RUN_SUMFILE}
 
 tail -f ${SDIR}/${RUN_SUMFILE}&
 TAIL_PID=$!

@@ -5,121 +5,68 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
-CHAINCODE_NAME="abac"
-CHAINCODE_PATH="abac/go"
-CHAINCODE_VERSION="1.0"
+#CHAINCODE_NAME="abac"
+#CHAINCODE_PATH="abac/go"
+#CHAINCODE_VERSION="1.0"
 LOG_FILE_NAME=/${COMMON}/chaincode-${CHAINCODE_NAME}-install.log
 
 function main {
-   set -x
-
    # Set ORDERER_PORT_ARGS to the args needed to communicate with the 1st orderer
    IFS=', ' read -r -a OORGS <<< "$ORDERER_ORGS"
-   export FABRIC_LOGGING_SPEC=info
    initOrdererVars ${OORGS[0]} 1
-
-   # Convert PEER_ORGS to an array named PORGS
    IFS=', ' read -r -a PORGS <<< "$PEER_ORGS"
 
-   # Create the channel
-   peer channel create -c $CHANNEL_NAME -f $CHANNEL_TX_FILE $ORDERER_CONN_ARGS
+   createChannel
 
-   # All peers join the channel
+   # All peers join, update the channel and install chainncode
    for ORG in $PEER_ORGS; do
       local COUNT=1
       while [[ "$COUNT" -le $NUM_PEERS ]]; do
-         initPeerVars $ORG $COUNT
-         joinChannel
+         joinChannel $ORG $COUNT
+         installChaincode $ORG $COUNT
          COUNT=$((COUNT+1))
       done
    done
-
-   # Update the anchor peers
-   for ORG in $PEER_ORGS; do
-      initPeerVars $ORG 1
-      switchToAdminIdentity
-      logr "Updating anchor peers for $PEER_HOST ..."
-      peer channel update -c $CHANNEL_NAME -f $ANCHOR_TX_FILE $ORDERER_CONN_ARGS
-   done
-
-   # Install chaincode on the 1st peer in each org
-   for ORG in $PEER_ORGS; do
-      initPeerVars $ORG 1
-      installChaincode
-   done
-
-   # Instantiate chaincode on the 1st peer of the 2nd org
-   makePolicy
-   initPeerVars ${PORGS[1]} 1
-   switchToAdminIdentity
-   logr "Instantiating chaincode on $PEER_HOST ..."
-   peer chaincode instantiate -C $CHANNEL_NAME -n ${CHAINCODE_NAME} -v ${CHAINCODE_VERSION} -c '{"Args":["init","a","100","b","200"]}' -P "$POLICY" $ORDERER_CONN_ARGS
-
+   
    # Query chaincode from the 1st peer of the 1st org
-   initPeerVars ${PORGS[0]} 1
-   switchToUserIdentity
-   chaincodeQuery 100
+   updateChannel ${PORGS[0]} 1 
+   instantiateChaincode ${PORGS[0]} 1 '{"Args":["init","a","100","b","200"]}'
 
-   # Invoke chaincode on the 1st peer of the 1st org
-   initPeerVars ${PORGS[0]} 1
-   switchToUserIdentity
-   logr "Sending invoke transaction to $PEER_HOST ..."
-   peer chaincode invoke -C $CHANNEL_NAME -n ${CHAINCODE_NAME} -c '{"Args":["invoke","a","b","10"]}' $ORDERER_CONN_ARGS
-
-   ## Install chaincode on 2nd peer of 2nd org
-   initPeerVars ${PORGS[1]} 2
-   installChaincode
-
-   # Query chaincode on 2nd peer of 2nd org
-   sleep 10
-   initPeerVars ${PORGS[1]} 2
-   switchToUserIdentity
-   chaincodeQuery 90
-
-   initPeerVars ${PORGS[0]} 1
-   switchToUserIdentity
-
-   # Revoke the user and generate CRL using admin's credentials
-   #revokeFabricUserAndGenerateCRL
-
-   # Fetch config block
+   chaincodeQuery ${PORGS[0]} 1 '{"Args":["query","a"]}' 100
+   invokeChaincode ${PORGS[0]} 1 '{"Args":["invoke","a","b","10"]}'
+   chaincodeQuery ${PORGS[1]} 2 '{"Args":["query","a"]}' 90
    fetchConfigBlock
-
    # Create config update envelope with CRL and update the config block of the channel
    createConfigUpdatePayloadWithCRL
-   updateConfigBlock
-
-   # querying the chaincode should fail as the user is revoked
+   initPeerVars ${PORGS[1]} 1
    switchToUserIdentity
-   #queryAsRevokedUser
-   #if [ "$?" -ne 0 ]; then
-   #   logr "The revoked user $USER_NAME should have failed to query the chaincode in the channel '$CHANNEL_NAME'"
-   #   exit 1
-   #fi
+   #updateConfigBlock
    logr "Congratulations! The tests ran successfully."
-
-   done=true
 }
 
 # Enroll as a peer admin and create the channel
 function createChannel {
-   #initPeerVars ${PORGS[0]} 1
-   #switchToAdminIdentity
-   #logr "Creating channel '$CHANNEL_NAME' on $ORDERER_HOST ..."
-   #echo "peer channel create --logging-level=DEBUG -c $CHANNEL_NAME -f $CHANNEL_TX_FILE $ORDERER_CONN_ARGS"
-   #peer channel create -c $CHANNEL_NAME -f $CHANNEL_TX_FILE $ORDERER_CONN_ARGS
-   echo
+   initPeerVars ${PORGS[0]} 1
+   switchToAdminIdentity
+   logr "Creating channel '$CHANNEL_NAME' on $ORDERER_HOST ..."
+   export CORE_PEER_MSPCONFIGPATH=$ORG_ADMIN_HOME/msp
+   peer channel create -c $CHANNEL_NAME -f $CHANNEL_TX_FILE $ORDERER_CONN_ARGS  --outputBlock $BLOCK_FILE
 }
 
 # Enroll as a fabric admin and join the channel
 function joinChannel {
-   switchToAdminIdentity
+   if [ $# -ne 2 ]; then
+      fatalr "Usage: joinChannel <ORG> <NUM>"
+   fi
    set +e
+   initPeerVars $1 $2
+   switchToAdminIdentity
    local COUNT=1
    MAX_RETRY=10
    while true; do
       logr "Peer $PEER_HOST is attempting to join channel '$CHANNEL_NAME' (attempt #${COUNT}) ..."
-      peer channel join -b /private/crypto${RANDOM_NUMBER}/$CHANNEL_NAME.block
+      export CORE_PEER_MSPCONFIGPATH=$ORG_ADMIN_HOME/msp
+      peer channel join -b ${BLOCK_FILE}
       if [ $? -eq 0 ]; then
          set -e
          logr "Peer $PEER_HOST successfully joined channel '$CHANNEL_NAME'"
@@ -134,26 +81,35 @@ function joinChannel {
 }
 
 function chaincodeQuery {
-   if [ $# -ne 1 ]; then
-      fatalr "Usage: chaincodeQuery <expected-value>"
+   if [ $# -ne 4 ]; then
+      fatalr "Usage: chaincodeQuery <ORG> <NUM> <Constructor message> <expected-value>"
    fi
    set +e
+   initPeerVars $1 $2
+   switchToUserIdentity $1
+   local ARGS=$3
+   local EXPECTED=$4
    logr "Querying chaincode in the channel '$CHANNEL_NAME' on the peer '$PEER_HOST' ..."
    local rc=1
    local starttime=$(date +%s)
    # Continue to poll until we get a successful response or reach QUERY_TIMEOUT
    while test "$(($(date +%s)-starttime))" -lt "$QUERY_TIMEOUT"; do
       sleep 1
-      peer chaincode query -C $CHANNEL_NAME -n ${CHAINCODE_NAME} -c '{"Args":["query","a"]}' >& ${LOG_FILE_NAME}
+
+      peer chaincode query \
+         -C $CHANNEL_NAME \
+         -n ${CHAINCODE_NAME} \
+         -c $ARGS >& ${LOG_FILE_NAME}
+
       VALUE=$(cat ${LOG_FILE_NAME} | awk '/Query Result/ {print $NF}')
-      if [ $? -eq 0 -a "$VALUE" = "$1" ]; then
+      if [ $? -eq 0 -a "$VALUE" = "$EXPECTED" ]; then
          logr "Query of channel '$CHANNEL_NAME' on peer '$PEER_HOST' was successful"
          set -e
          return 0
       else
          # removed the string "Query Result" from peer chaincode query command result, as a result, have to support both options until the change is merged.
          VALUE=$(cat ${LOG_FILE_NAME} | egrep '^[0-9]+$')
-         if [ $? -eq 0 -a "$VALUE" = "$1" ]; then
+         if [ $? -eq 0 -a "$VALUE" = "$EXPECTED" ]; then
             logr "Query of channel '$CHANNEL_NAME' on peer '$PEER_HOST' was successful"
             set -e
             return 0
@@ -163,10 +119,13 @@ function chaincodeQuery {
    done
    cat ${LOG_FILE_NAME}
    cat ${LOG_FILE_NAME} >> $RUN_SUMFILE
-   fatalr "Failed to query channel '$CHANNEL_NAME' on peer '$PEER_HOST'; expected value was $1 and found $VALUE"
+   fatalr "Failed to query channel '$CHANNEL_NAME' on peer '$PEER_HOST'; expected value was $EXPECTED and found $VALUE"
 }
 
 function queryAsRevokedUser {
+   if [ $# -ne 2 ]; then
+      fatalr "Usage: queryAsRevokedUser <ORG> <NUM>"
+   fi
    set +e
    logr "Querying the chaincode in the channel '$CHANNEL_NAME' on the peer '$PEER_HOST' as revoked user '$USER_NAME' ..."
    local starttime=$(date +%s)
@@ -205,10 +164,62 @@ function makePolicy  {
    log "policy: $POLICY"
 }
 
+function updateChannel {
+   if [ $# -ne 2 ]; then
+      fatalr "Usage: updateChannel <ORG> <NUM>"
+   fi
+   initPeerVars $1 $2
+   switchToAdminIdentity
+   logr "Updating anchor peers for $PEER_HOST ..."
+   export CORE_PEER_MSPCONFIGPATH=$ORG_ADMIN_HOME/msp
+   peer channel update \
+      -c $CHANNEL_NAME \
+      -f $ANCHOR_TX_FILE \
+      $ORDERER_CONN_ARGS
+}
+
 function installChaincode {
+   if [ $# -ne 2 ]; then
+      fatalr "Usage: installChaincode <ORG> <NUM>"
+   fi
+   initPeerVars $1 $2
    switchToAdminIdentity
    logr "Installing chaincode on $PEER_HOST ..."
-   peer chaincode install -n ${CHAINCODE_NAME} -v ${CHAINCODE_VERSION} -p github.com/hyperledger/fabric-samples/${CHAINCODE_PATH}
+   peer chaincode install \
+      -n ${CHAINCODE_NAME} \
+      -v ${CHAINCODE_VERSION} \
+      -p github.com/hyperledger/fabric-samples/${CHAINCODE_PATH}
+}
+
+function instantiateChaincode {
+   if [ $# -ne 3 ]; then
+      fatalr "Usage: instantiateChaincode <ORG> <NUM> <Constructor message> "
+   fi
+   makePolicy
+   initPeerVars $1 $2
+   switchToAdminIdentity
+   logr "Instantiating chaincode on $PEER_HOST ..."
+   peer chaincode instantiate \
+      -C $CHANNEL_NAME \
+      -n ${CHAINCODE_NAME} \
+      -v ${CHAINCODE_VERSION} \
+      -c $3 \
+      -P "$POLICY" \
+      $ORDERER_CONN_ARGS
+}
+
+function invokeChaincode {
+   if [ $# -ne 3 ]; then
+      fatalr "Usage: invokeChaincode <ORG> <NUM> <Constructor message> "
+   fi
+   initPeerVars $1 $2
+   switchToUserIdentity $1
+   logr "Sending invoke transaction to $PEER_HOST ..."
+   peer chaincode invoke \
+      -C $CHANNEL_NAME \
+      -n ${CHAINCODE_NAME} \
+      -c $3 \
+      $ORDERER_CONN_ARGS
 }
 
 function fetchConfigBlock {
@@ -256,7 +267,6 @@ function createConfigUpdatePayloadWithCRL {
 
    # Stop configtxlator
    kill $configtxlator_pid
-
    popd
 }
 
