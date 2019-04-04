@@ -74,7 +74,8 @@ function registerPeerIdentities {
    fabric-ca-client register -d --id.name $PEER_NAME --id.secret $PEER_PASS --id.type peer
    log "Registering admin identity with $CA_NAME"
    # The admin identity has the "admin" attribute which is added to ECert by default
-   fabric-ca-client register -d --id.name $ADMIN_NAME --id.secret $ADMIN_PASS --id.attrs "hf.Registrar.Roles=client,hf.Registrar.Attributes=*,hf.Revoker=true,hf.GenCRL=true,admin=true:ecert,abac.init=true:ecert"
+   ATTRS="hf.Registrar.Roles=client,hf.Registrar.Attributes=*,hf.Revoker=true,hf.GenCRL=true,admin=true:ecert,abac.init=true:ecert"
+   fabric-ca-client register -d --id.name $ADMIN_NAME --id.secret $ADMIN_PASS --id.attrs $ATTRS
    log "Registering user identity with $CA_NAME"
    fabric-ca-client register -d --id.name $USER_NAME --id.secret $USER_PASS
 }
@@ -101,7 +102,7 @@ function generateGenesisBlock {
    log "Generating orderer genesis block at $GENESIS_BLOCK_FILE"
    # Note: For some unknown reason (at least for now) the block file can't be
    # named orderer.genesis.block or the orderer will fail to launch!
-   configtxgen -profile OrgsOrdererGenesis -outputBlock $GENESIS_BLOCK_FILE
+   configtxgen -profile ${ORG_ORDERER_GENESIS} -outputBlock $GENESIS_BLOCK_FILE
    if [ "$?" -ne 0 ]; then
       fatal "Failed to generate orderer genesis block"
    fi

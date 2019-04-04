@@ -8,13 +8,10 @@
 SRC=$(dirname "$0")
 source $SRC/env.sh $ORDERER_ORGS "$PEER_ORGS" $NUM_PEERS
 source $SRC/make-config-tx.sh
-LOG_FILE_NAME=/${COMMON}/chaincode-${CHAINCODE_NAME}-install.log
+LOG_FILE_NAME=${LOGDIR}/chaincode-${CHAINCODE_NAME}-install.log
 
 function testABAC {
-   makeConfigTxYaml /${COMMON}
-   generateChannelTx 
    createChannel
-   # All peers join, update the channel and install chainncode
    for ORG in $PEER_ORGS; do
       local COUNT=1
       while [[ "$COUNT" -le $NUM_PEERS ]]; do
@@ -22,18 +19,44 @@ function testABAC {
          installChaincode $ORG $COUNT
          instantiateChaincode $ORG $COUNT '{"Args":["init","a","100","b","200"]}'
          chaincodeQuery $ORG $COUNT '{"Args":["query","a"]}' 100
-         invokeChaincode $ORG $COUNT '{"Args":["invoke","a","b","10"]}'
-         chaincodeQuery $ORG $COUNT '{"Args":["query","a"]}' 90
+         #invokeChaincode $ORG $COUNT '{"Args":["invoke","a","b","10"]}'
+         #chaincodeQuery $ORG $COUNT '{"Args":["query","a"]}' 90
          COUNT=$((COUNT+1))
       done
    done
    
    # Query chaincode from the 1st peer of the 1st org
-   updateChannel ${PORGS[0]} 1 
-   fetchConfigBlock
-   createConfigUpdatePayloadWithCRL
-   #updateConfigBlock
+   #updateChannel ${PORGS[0]} 1
    logr "Congratulations! The tests ran successfully."
+}
+
+function addAffiliation {
+   IFS=', ' read -r -a OORGS <<< "$ORDERER_ORGS"
+   IFS=', ' read -r -a PORGS <<< "$PEER_ORGS"
+   initOrdererVars ${OORGS[0]} 1
+   initOrgVars $ORDERER_ORGS
+
+   initPeerVars ${PORGS[0]} 1
+   switchToAdminIdentity
+   set -x
+   #export CORE_PEER_MSPCONFIGPATH=/${COMMON}/orgs/${1}/msp
+   #export ORG_ADMIN_HOME=/${COMMON}/orgs/${1}
+   #export FABRIC_CA_CLIENT_HOME=$ORG_ADMIN_HOME
+   fabric-ca-client enroll -u https://$CA_ADMIN_USER_PASS@$CA_HOST:7054 -M /${COMMON}/orgs/${1}/admin/msp
+   fabric-ca-client affiliation add $1 -d \
+      -M /${COMMON}/orgs/${1}/admin/msp \
+      -u https://$CA_ADMIN_USER_PASS@$CA_HOST:7054 \
+      --tls.client.certfile $CORE_ORDERER_TLS_CLIENTCERT_FILE \
+      --tls.client.keyfile $CORE_ORDERER_TLS_CLIENTKEY_FILE \
+      --tls.certfiles $INT_CA_CHAINFILE
+   set +x
+}
+
+function updateChannelConfig {
+   set -x
+   fetchConfigBlock $1 $2
+   createConfigUpdatePayload $3 $2
+   updateConfigBlock $1 $2
 }
 
 # Enroll as a peer admin and create the channel
@@ -43,6 +66,8 @@ function createChannel {
    initOrdererVars ${OORGS[0]} 1
    initPeerVars ${PORGS[0]} 1
    switchToAdminIdentity
+   makeConfigTxYaml /${COMMON}
+   generateChannelTx ${PORGS[0]}
    export CORE_PEER_MSPCONFIGPATH=$ORG_ADMIN_HOME/msp
    logr "Creating channel '$CHANNEL_NAME' on $ORDERER_HOST ..."
    peer channel create -c $CHANNEL_NAME -f $CHANNEL_TX_FILE $ORDERER_CONN_ARGS --outputBlock $BLOCK_FILE
@@ -53,7 +78,7 @@ function joinChannel {
    if [ $# -ne 2 ]; then
       fatalr "Usage: joinChannel <ORG> <NUM>"
    fi
-   set +e
+
    IFS=', ' read -r -a OORGS <<< "$ORDERER_ORGS"
    initOrdererVars ${OORGS[0]} 1
    IFS=', ' read -r -a PORGS <<< "$PEER_ORGS"
@@ -64,6 +89,7 @@ function joinChannel {
    while true; do
       logr "Peer $PEER_HOST is attempting to join channel '$CHANNEL_NAME' (attempt #${COUNT}) ..."
       export CORE_PEER_MSPCONFIGPATH=$ORG_ADMIN_HOME/msp
+      peer channel list
       peer channel join -b ${BLOCK_FILE}
       if [ $? -eq 0 ]; then
          set -e
@@ -241,8 +267,13 @@ function generateChannelTx {
       fatal "configtxgen tool not found. exiting"
    fi
 
+   ORG=$1
+
    log "Generating channel configuration transaction at $CHANNEL_TX_FILE"
-   configtxgen -profile OrgsChannel -outputCreateChannelTx $CHANNEL_TX_FILE -channelID $CHANNEL_NAME
+   configtxgen -profile ${ORGS_PROFILE} \
+      -outputCreateChannelTx $CHANNEL_TX_FILE \
+      -channelID $CHANNEL_NAME
+
    if [ "$?" -ne 0 ]; then
       fatal "Failed to generate channel configuration transaction"
    fi
@@ -250,8 +281,10 @@ function generateChannelTx {
    for ORG in $PEER_ORGS; do
       initOrgVars $ORG
       log "Generating anchor peer update transaction for $ORG at $ANCHOR_TX_FILE"
-      configtxgen -profile OrgsChannel -outputAnchorPeersUpdate $ANCHOR_TX_FILE \
-                  -channelID $CHANNEL_NAME -asOrg $ORG
+      configtxgen -profile ${ORGS_PROFILE} \
+         -outputAnchorPeersUpdate $ANCHOR_TX_FILE \
+         -channelID $CHANNEL_NAME -asOrg $ORG
+
       if [ "$?" -ne 0 ]; then
          fatal "Failed to generate anchor peer update for $ORG"
       fi
@@ -260,50 +293,72 @@ function generateChannelTx {
 
 function fetchConfigBlock {
    logr "Fetching the configuration block of the channel '$CHANNEL_NAME'"
+   IFS=', ' read -r -a OORGS <<< "$ORDERER_ORGS"
+   initOrdererVars ${OORGS[0]} 1
+   IFS=', ' read -r -a PORGS <<< "$PEER_ORGS"
+   initPeerVars $1 $2
+   switchToUserIdentity $1
    peer channel fetch config $CONFIG_BLOCK_FILE -c $CHANNEL_NAME $ORDERER_CONN_ARGS
 }
 
 function updateConfigBlock {
    logr "Updating the configuration block of the channel '$CHANNEL_NAME'"
+   logr "Fetching the configuration block of the channel '$CHANNEL_NAME'"
+   IFS=', ' read -r -a OORGS <<< "$ORDERER_ORGS"
+   initOrdererVars ${OORGS[0]} 1
+   IFS=', ' read -r -a PORGS <<< "$PEER_ORGS"
+   initPeerVars $1 $2
+   switchToUserIdentity $1
    peer channel update -f $CONFIG_UPDATE_ENVELOPE_FILE -c $CHANNEL_NAME $ORDERER_CONN_ARGS
 }
 
-function createConfigUpdatePayloadWithCRL {
-   logr "Creating config update payload with the generated CRL for the organization '$ORG'"
-   # Start the configtxlator
-   configtxlator start &
-   configtxlator_pid=$!
-   log "configtxlator_pid:$configtxlator_pid"
-   logr "Sleeping 5 seconds for configtxlator to start..."
-   sleep 5
+function createConfigUpdatePayload {
+   ORG=$1
+   PATH_PREFIX=/tmp
+   
+   configtxgen -printOrg $ORG > $PATH_PREFIX/$ORG.json
 
-   pushd /tmp
-
-   CTLURL=http://127.0.0.1:7059
-   # Convert the config block protobuf to JSON
-   curl -X POST --data-binary @$CONFIG_BLOCK_FILE $CTLURL/protolator/decode/common.Block > config_block.json
-   # Extract the config from the config block
-   jq .data.data[0].payload.data.config config_block.json > config.json
+   configtxlator proto_decode \
+      --input $CONFIG_BLOCK_FILE \
+      --type common.Block | jq .data.data[0].payload.data.config > $PATH_PREFIX/config.json
 
    # Update crl in the config json
-   CRL=$(cat $CORE_PEER_MSPCONFIGPATH/crls/crl*.pem | base64 | tr -d '\n')
-   cat config.json | jq --arg org "$ORG" --arg crl "$CRL" '.channel_group.groups.Application.groups[$org].values.MSP.value.config.revocation_list = [$crl]' > updated_config.json
+   initPeerVars $1 $2
+   switchToAdminIdentity
+   makeConfigTxYaml /${COMMON}
+   generateChannelTx $1
+   
+   jq -s '.[0] * {"channel_group":{"groups":{"Application":{"groups": {'$ORG':.[1]}}}}}' \
+   $PATH_PREFIX/config.json $PATH_PREFIX/$ORG.json > $PATH_PREFIX/updated_config.json
 
-   # Create the config diff protobuf
-   curl -X POST --data-binary @config.json $CTLURL/protolator/encode/common.Config > config.pb
-   curl -X POST --data-binary @updated_config.json $CTLURL/protolator/encode/common.Config > updated_config.pb
-   curl -X POST -F original=@config.pb -F updated=@updated_config.pb $CTLURL/configtxlator/compute/update-from-configs -F channel=$CHANNEL_NAME > config_update.pb
+   configtxlator proto_encode \
+      --input $PATH_PREFIX/config.json \
+      --type common.Config > $PATH_PREFIX/config.pb
+   
+   configtxlator proto_encode \
+      --input $PATH_PREFIX/updated_config.json \
+      --type common.Config > $PATH_PREFIX/updated_config.pb
 
-   # Convert the config diff protobuf to JSON
-   curl -X POST --data-binary @config_update.pb $CTLURL/protolator/decode/common.ConfigUpdate > config_update.json
+   configtxlator compute_update \
+      --original $PATH_PREFIX/config.pb \
+      --updated $PATH_PREFIX/updated_config.pb \
+      --channel_id=$CHANNEL_NAME > $PATH_PREFIX/config_update.pb
 
-   # Create envelope protobuf container config diff to be used in the "peer channel update" command to update the channel configuration block
-   echo '{"payload":{"header":{"channel_header":{"channel_id":"'"${CHANNEL_NAME}"'", "type":2}},"data":{"config_update":'$(cat config_update.json)'}}}' > config_update_as_envelope.json
-   curl -X POST --data-binary @config_update_as_envelope.json $CTLURL/protolator/encode/common.Envelope > $CONFIG_UPDATE_ENVELOPE_FILE
+   configtxlator proto_decode \
+      --input $PATH_PREFIX/config_update.pb \
+      --type common.ConfigUpdate > $PATH_PREFIX/config_update.json
+ 
+   echo '{"payload":{"header":{"channel_header":{"channel_id":"'"${CHANNEL_NAME}"'", "type":2}},"data":{"config_update":'$(cat "$PATH_PREFIX"/config_update.json)'}}}' > $PATH_PREFIX/config_update_as_envelope.json
+   configtxlator proto_encode \
+      --input $PATH_PREFIX/config_update_as_envelope.json \
+      --type common.Envelope > $CONFIG_UPDATE_ENVELOPE_FILE
 
-   # Stop configtxlator
-   kill $configtxlator_pid
-   popd
+   # sign by majority
+   for ORGAN in $PEER_ORGS; do
+      initPeerVars $ORGAN 1
+      export CORE_PEER_MSPCONFIGPATH=/${COMMON}/orgs/${ORGAN}/admin/msp
+      peer channel signconfigtx -f $CONFIG_UPDATE_ENVELOPE_FILE
+   done
 }
 
 function finish {
@@ -327,4 +382,4 @@ function fatalr {
    exit 1
 }
 
-$1
+$1 $2 $3 $4

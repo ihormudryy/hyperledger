@@ -35,9 +35,11 @@ function main {
    {
    createDockerFiles
    writeHeader
-   writeRootFabricCA
+   #IFS=', ' read -r -a OORGS <<< "$ORDERER_ORGS"
+   #IFS=', ' read -r -a PORGS <<< "$PEER_ORGS"
+   writeRootFabricCA $ORGS
    if $USE_INTERMEDIATE_CA; then
-      writeIntermediateFabricCA
+      writeIntermediateFabricCA $ORGS
    fi
    writeStartFabric
    #writeBlockchainExplorer
@@ -62,14 +64,14 @@ function createSingleOrganization {
    createDockerFiles
    writeHeader
    initOrgVars $ORGANIZATION
-   writeRootFabricCA
+   writeRootCA
    if $USE_INTERMEDIATE_CA; then
-      writeIntermediateFabricCA
+      writeIntermediateCA
    fi
-   initOrdererVars $ORDERER_ORGS 1
-   export COUNT=1
+   #initOrdererVars $ORDERER_ORGS 1
+   #export COUNT=1
    COUNTER=1
-   writeOrderer
+   #writeOrderer
    while [[ "$COUNTER" -le $PEER_COUNT ]]; do
       initPeerVars $ORGANIZATION $COUNTER
       writePeer
@@ -128,6 +130,14 @@ function writeRootFabricCA {
    for ORG in $ORGS; do
       initOrgVars $ORG
       writeRootCA
+   done
+}
+
+# Write services for the intermediate fabric CA servers
+function writeIntermediateFabricCA {
+   for ORG in $ORGS; do
+      initOrgVars $ORG
+      writeIntermediateCA
    done
 }
 
@@ -252,14 +262,6 @@ function writeBlockchainExplorerService {
    done
    echo "}}}}" >> ${DOCKER_DIR}/config.json
    log "Created config.json for blockchain browser"
-}
-
-# Write services for the intermediate fabric CA servers
-function writeIntermediateFabricCA {
-   for ORG in $ORGS; do
-      initOrgVars $ORG
-      writeIntermediateCA
-   done
 }
 
 # Write a service to setup the fabric artifacts (e.g. genesis block, etc)

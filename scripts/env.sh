@@ -61,6 +61,9 @@ export CHANNEL_NAME="channel${RANDOM_NUMBER}"
 # Block name
 export BLOCK_FILE=/${COMMON}/crypto${RANDOM_NUMBER}/${CHANNEL_NAME}.block
 
+export ORGS_PROFILE="OrgsChannel"
+export ORG_ORDERER_GENESIS="OrgsOrdererGenesis"
+
 # Query timeout in seconds
 export QUERY_TIMEOUT=30
 
@@ -103,6 +106,7 @@ function initOrgVars {
       exit 1
    fi
    ORG=$1
+   ANCHOR_TX_FILE=/${COMMON}/orgs/${ORG}/anchors.tx
    ORG_CONTAINER_NAME=${ORG//./-}
    ROOT_CA_HOST=rca-${ORG}
    ROOT_CA_NAME=rca-${ORG}
@@ -132,7 +136,6 @@ function initOrgVars {
 
    ROOT_CA_CERTFILE=/${COMMON}/${ORG}-ca-cert.pem
    INT_CA_CHAINFILE=/${COMMON}/${ORG}-ca-chain.pem
-   ANCHOR_TX_FILE=/${COMMON}/orgs/${ORG}/anchors.tx
    ORG_MSP_ID=${ORG}MSP
    ORG_MSP_DIR=/${COMMON}/orgs/${ORG}/msp
    ORG_ADMIN_CERT=${ORG_MSP_DIR}/admincerts/cert.pem

@@ -100,7 +100,7 @@ Application: &ApplicationDefaults
 ################################################################################
 Profiles:
 
-  OrgsOrdererGenesis:
+  ${ORG_ORDERER_GENESIS}:
     Orderer:
       # Orderer Type: The orderer implementation to start
       # Available types are \"solo\" and \"kafka\"
@@ -172,7 +172,7 @@ Profiles:
    done
 
    echo "
-  OrgsChannel:
+  ${ORGS_PROFILE}:
     Consortium: SampleConsortium
     Application:
       <<: *ApplicationDefaults

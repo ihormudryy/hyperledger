@@ -58,13 +58,13 @@ ${SDIR}/scripts/makeDocker.sh createFabricRunner
 
 export RANDOM_NUMBER=${RANDOM}
 echo "Second random number: $RANDOM_NUMBER"
-source ${SDIR}/scripts/env.sh "olp" "mercedes" 3
+source ${SDIR}/scripts/env.sh "here" "mercedes" 3
 ${SDIR}/scripts/makeDocker.sh createSingleOrganization
 
 # Create the docker containers
 log "Creating docker containers ..."
 docker-compose -f ${SDIR}/docker/docker-compose.yaml up -d
-docker-compose -f ${SDIR}/docker/docker-compose-mercedes.yaml up -d
+#docker-compose -f ${SDIR}/docker/docker-compose-mercedes.yaml up -d
 docker-compose -f ${SDIR}/docker/docker-compose-setup.yaml up -d
 
 # Wait for the setup container to complete
