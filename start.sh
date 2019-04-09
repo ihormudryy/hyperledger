@@ -23,7 +23,9 @@ SDIR=$(dirname "$0")
 cd ${SDIR}
 export RANDOM_NUMBER=${RANDOM}
 echo "First random number: $RANDOM_NUMBER"
-source ${SDIR}/scripts/env.sh "here" "consumer provider" 3
+echo $RANDOM_NUMBER > ${SDIR}/scripts/random.txt
+export TYPE="kafka"
+source ${SDIR}/scripts/env.sh "here" "consumer provider" 3 "$TYPE"
 
 # Delete docker containers
 dockerContainers=$(docker ps -a | awk '$2~/hyperledger/ {print $1}')
@@ -56,15 +58,15 @@ mkdir -p ${SDIR}/logs
 ${SDIR}/scripts/makeDocker.sh main
 ${SDIR}/scripts/makeDocker.sh createFabricRunner
 
-export RANDOM_NUMBER=${RANDOM}
-echo "Second random number: $RANDOM_NUMBER"
-source ${SDIR}/scripts/env.sh "here" "mercedes" 3
-${SDIR}/scripts/makeDocker.sh createSingleOrganization
-
 # Create the docker containers
 log "Creating docker containers ..."
 docker-compose -f ${SDIR}/docker/docker-compose.yaml up -d
-#docker-compose -f ${SDIR}/docker/docker-compose-mercedes.yaml up -d
+source ${SDIR}/scripts/env.sh "here" "germany" 3 "$TYPE"
+${SDIR}/scripts/makeDocker.sh createSingleOrganization
+source ${SDIR}/scripts/env.sh "here" "ukraine" 3 "$TYPE"
+${SDIR}/scripts/makeDocker.sh createSingleOrganization
+docker-compose -f ${SDIR}/docker/docker-compose-germany.yaml up -d
+docker-compose -f ${SDIR}/docker/docker-compose-ukraine.yaml up -d
 docker-compose -f ${SDIR}/docker/docker-compose-setup.yaml up -d
 
 # Wait for the setup container to complete

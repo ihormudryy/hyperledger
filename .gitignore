@@ -11,3 +11,4 @@ data
 docker
 *.block
 logs
+scripts/random.txt

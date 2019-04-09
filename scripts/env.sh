@@ -22,7 +22,7 @@ export SUBNET="172.16.0.0/24"
 
 # Names and types of the orderer organizations
 export ORDERER_ORGS="$1"
-export ORDERER_TYPE="kafka"
+export ORDERER_TYPE="$4"
 
 # Names of the peer organizations
 export PEER_ORGS="$2"
@@ -331,10 +331,10 @@ function finishMSPSetup {
       fatal "Usage: finishMSPSetup <targetMSPDIR>"
    fi
    if [ ! -d $1/tlscacerts ]; then
-      mkdir $1/tlscacerts
+      mkdir -p $1/tlscacerts
       cp $1/cacerts/* $1/tlscacerts
       if [ -d $1/intermediatecerts ]; then
-         mkdir $1/tlsintermediatecerts
+         mkdir -p $1/tlsintermediatecerts
          cp $1/intermediatecerts/* $1/tlsintermediatecerts
       fi
    fi
