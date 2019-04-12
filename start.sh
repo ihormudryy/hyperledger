@@ -25,7 +25,9 @@ export RANDOM_NUMBER=${RANDOM}
 echo "First random number: $RANDOM_NUMBER"
 echo $RANDOM_NUMBER > ${SDIR}/scripts/random.txt
 export TYPE="kafka"
-source ${SDIR}/scripts/env.sh "here" "consumer provider" 3 "$TYPE"
+export ORDERER="blockchain-technology"
+export ORGS="governor"
+source ${SDIR}/scripts/env.sh $ORDERER "$ORGS" 2 $TYPE
 
 # Delete docker containers
 dockerContainers=$(docker ps -a | awk '$2~/hyperledger/ {print $1}')
@@ -57,17 +59,20 @@ mkdir -p ${SDIR}/logs
 # Create the docker-compose file
 ${SDIR}/scripts/makeDocker.sh main
 ${SDIR}/scripts/makeDocker.sh createFabricRunner
-
-# Create the docker containers
-log "Creating docker containers ..."
 docker-compose -f ${SDIR}/docker/docker-compose.yaml up -d
-source ${SDIR}/scripts/env.sh "here" "germany" 3 "$TYPE"
-${SDIR}/scripts/makeDocker.sh createSingleOrganization
-source ${SDIR}/scripts/env.sh "here" "ukraine" 3 "$TYPE"
-${SDIR}/scripts/makeDocker.sh createSingleOrganization
-docker-compose -f ${SDIR}/docker/docker-compose-germany.yaml up -d
-docker-compose -f ${SDIR}/docker/docker-compose-ukraine.yaml up -d
+
+ORGANIZATIONS="org1 org2 org3 org4"
+IFS=', ' read -r -a OORGS <<< "$ORGANIZATIONS"
+MAX_PEERS=2
+for ORG in $ORGANIZATIONS; do
+   source ${SDIR}/scripts/env.sh $ORDERER $ORG $MAX_PEERS $TYPE
+   ${SDIR}/scripts/makeDocker.sh createSingleOrganization
+   docker-compose -f ${SDIR}/docker/docker-compose-$ORG.yaml up -d
+done
+
 docker-compose -f ${SDIR}/docker/docker-compose-setup.yaml up -d
+docker ps -a
+exit
 
 # Wait for the setup container to complete
 dowait "the 'setup' to finish registering identities, creating the genesis block and other artifacts" 90 $SDIR/$SETUP_LOGFILE $SDIR/$SETUP_SUCCESS_FILE
@@ -79,7 +84,6 @@ TAIL_PID=$!
 while true; do
    if [ -f ${SDIR}/${RUN_SUCCESS_FILE} ]; then
       kill -9 $TAIL_PID
-      docker ps -a
       exit 0
    elif [ -f ${SDIR}/${RUN_FAIL_FILE} ]; then
       kill -9 $TAIL_PID

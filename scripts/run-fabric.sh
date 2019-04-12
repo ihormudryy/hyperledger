@@ -21,7 +21,6 @@ function testChannel {
          COUNT=$((COUNT+1))
       done
    done
-   updateChannel ${PORGS[0]} 3
    logr "Congratulations! The testChannel tests ran successfully."
 }
 
@@ -32,7 +31,8 @@ function testABACChaincode {
    export CHAINCODE_NAME="abac"
    export CHAINCODE_PATH="abac/go"
    export CHAINCODE_TYPE="golang"
-   export CHAINCODE_VERSION="3.0"
+
+   export CHAINCODE_VERSION="3.3"
    for ORG in $PEER_ORGS; do
       local COUNT=1
       while [[ "$COUNT" -le $NUM_PEERS ]]; do
@@ -44,44 +44,71 @@ function testABACChaincode {
    chaincodeQuery ${PORGS[0]} 1 '{"Args":["query","a"]}' 100
    invokeChaincode ${PORGS[0]} 1 '{"Args":["invoke","a","b","10"]}'
    chaincodeQuery ${PORGS[0]} 1 '{"Args":["query","a"]}' 90
+
+   export CHAINCODE_VERSION="3.4"
+   for ORG in $PEER_ORGS; do
+      local COUNT=1
+      while [[ "$COUNT" -le $NUM_PEERS ]]; do
+         installChaincode $ORG $COUNT
+         COUNT=$((COUNT+1))
+      done
+   done
+   upgradeChaincode ${PORGS[0]} 1 '{"Args":["init","a","100","b","200"]}'
+
+   chaincodeQuery ${PORGS[0]} 1 '{"Args":["query","a"]}' 100
+   invokeChaincode ${PORGS[0]} 1 '{"Args":["invoke","a","b","10"]}'
+   chaincodeQuery ${PORGS[0]} 1 '{"Args":["query","a"]}' 90
+
    logr "Congratulations! The testABACChaincode tests ran successfully."
 }
 
 function testHighThroughputChaincode {
    IFS=', ' read -r -a OORGS <<< "$ORDERER_ORGS"
    IFS=', ' read -r -a PORGS <<< "$PEER_ORGS"
+   updateChannel ${PORGS[0]} 1
    export CHAINCODE_NAME="high_throughput"
    export CHAINCODE_PATH="high_throughput"
    export CHAINCODE_TYPE="golang"
-   export CHAINCODE_VERSION="1.0"
+   export CHAINCODE_VERSION="1.3"
+   echo "HELLO $PEER_ORGS"
+   sleep 2
    for ORG in $PEER_ORGS; do
       local COUNT=1
       while [[ "$COUNT" -le $NUM_PEERS ]]; do
-         #installChaincode $ORG $COUNT
+         installChaincode $ORG $COUNT
          COUNT=$((COUNT+1))
       done
    done
-   ORG_NUM=$(($RANDOM%3))
-   PEER_NUM=$(($(($RANDOM%3))+1))
-   #instantiateChaincode ${PORGS[$ORG_NUM]} $PEER_NUM '{"Args":[]}'
+   MAX_ORGS=3
+   MAX_PEERS=2
+   ORG_NUM=$(($RANDOM%$MAX_ORGS))
+   PEER_NUM=$(($(($RANDOM%$MAX_PEERS))+1))
+   instantiateChaincode ${PORGS[$ORG_NUM]} $PEER_NUM '{"Args":[]}'
+   
    sleep 5 #Done to awoit time related errors
+
    export COUNTER=0
    export VARIABLE="myvar${RANDOM}"
    START=$(date +%s)
-   for (( i = 0; i < 1000; ++i ))
+   for (( i = 0; i < 100; ++i ))
    do
       VALUE=${RANDOM}
       SIGN="+"
       COUNTER=$((COUNTER+$VALUE))
-      ORG_NUM=$(($RANDOM%3))
-      PEER_NUM=$(($(($RANDOM%3))+1))
+      ORG_NUM=$(($RANDOM%$MAX_ORGS))
+      PEER_NUM=$(($(($RANDOM%$MAX_PEERS))+1))
       invokeChaincode ${PORGS[$ORG_NUM]} $PEER_NUM '{"Args":["update","'$VARIABLE'","'$VALUE'","'$SIGN'"]}'
-      chaincodeQuery ${PORGS[$ORG_NUM]} $PEER_NUM '{"Args":["get","'$VARIABLE'"]}' $COUNTER
    done
-   END=$(date +%s)
-   DIFF=$(( $END - $START ))
    echo "testHighThroughput UPDATE took $DIFF seconds"
 
+   END=$(date +%s)
+   DIFF=$(( $END - $START ))
+   for (( i = 0; i < 100; ++i ))
+   do
+      ORG_NUM=$(($RANDOM%$MAX_ORGS))
+      PEER_NUM=$(($(($RANDOM%$MAX_PEERS))+1))
+      chaincodeQuery ${PORGS[$ORG_NUM]} $PEER_NUM '{"Args":["get","'$VARIABLE'"]}' $COUNTER
+   done
    START=$(date +%s)
    END=$(date +%s)
    DIFF=$(( $END - $START ))
@@ -106,11 +133,10 @@ function addAffiliation {
       --tls.client.certfile $CORE_ORDERER_TLS_CLIENTCERT_FILE \
       --tls.client.keyfile $CORE_ORDERER_TLS_CLIENTKEY_FILE \
       --tls.certfiles $INT_CA_CHAINFILE
-   set +x
 }
 
 function updateChannelConfig {
-    $SRC/env.sh $ORDERER_ORGS "$PEER_ORGS" $NUM_PEERS
+   $SRC/env.sh $ORDERER_ORGS "$PEER_ORGS" $NUM_PEERS
    rm -rf /tmp/*
    fetchConfigBlock $1 $2
    createConfigUpdatePayload $3 $2
@@ -120,6 +146,7 @@ function updateChannelConfig {
       joinChannel $3 $COUNT
       COUNT=$((COUNT+1))
    done
+   #updateChannel $1 $2
 }
 
 # Enroll as a peer admin and create the channel
@@ -132,6 +159,8 @@ function createChannel {
    makeConfigTxYaml /${COMMON}
    generateChannelTx ${1}
    export CORE_PEER_MSPCONFIGPATH=$ORG_ADMIN_HOME/msp
+   peer channel list
+   sleep 1
    logr "Creating channel '$CHANNEL_NAME' on $ORDERER_HOST ..."
    peer channel create \
       -c $CHANNEL_NAME \
@@ -141,9 +170,9 @@ function createChannel {
 
 # Enroll as a fabric admin and join the channel
 function joinChannel {
-   if [ $# -ne 2 ]; then
-      fatalr "Usage: joinChannel <ORG> <NUM>"
-   fi
+   #if [ $# -ne 2 ]; then
+   #   fatalr "Usage: joinChannel <ORG> <NUM>"
+   #fi
 
    IFS=', ' read -r -a OORGS <<< "$ORDERER_ORGS"
    initOrdererVars ${OORGS[0]} 1
@@ -257,9 +286,9 @@ function makePolicy  {
 }
 
 function updateChannel {
-   if [ $# -ne 2 ]; then
-      fatalr "Usage: updateChannel <ORG> <NUM>"
-   fi
+   #if [ $# -ne 2 ]; then
+   #   fatalr "Usage: updateChannel <ORG> <NUM>"
+   #fi
    IFS=', ' read -r -a OORGS <<< "$ORDERER_ORGS"
    initOrdererVars ${OORGS[0]} 1
    IFS=', ' read -r -a PORGS <<< "$PEER_ORGS"
@@ -293,6 +322,28 @@ function installChaincode {
    set +x
 }
 
+function upgradeChaincode {
+   if [ $# -ne 3 ]; then
+      fatalr "Usage: instantiateChaincode <ORG> <NUM> <Constructor message> "
+   fi
+   IFS=', ' read -r -a OORGS <<< "$ORDERER_ORGS"
+   initOrdererVars ${OORGS[0]} 1
+   IFS=', ' read -r -a PORGS <<< "$PEER_ORGS"
+   makePolicy
+   initPeerVars $1 $2
+   switchToAdminIdentity
+   #export CORE_PEER_MSPCONFIGPATH=$ORG_ADMIN_HOME/msp
+   logr "Upgrading chaincode on $PEER_HOST ..."
+   peer chaincode upgrade \
+      -C ${CHANNEL_NAME} \
+      -n ${CHAINCODE_NAME} \
+      -v ${CHAINCODE_VERSION} \
+      -c $3 \
+      -l ${CHAINCODE_TYPE} \
+      -P ${POLICY} \
+      $ORDERER_CONN_ARGS
+}
+
 function instantiateChaincode {
    if [ $# -ne 3 ]; then
       fatalr "Usage: instantiateChaincode <ORG> <NUM> <Constructor message> "
@@ -303,7 +354,7 @@ function instantiateChaincode {
    makePolicy
    initPeerVars $1 $2
    switchToAdminIdentity
-   export CORE_PEER_MSPCONFIGPATH=$ORG_ADMIN_HOME/msp
+   #export CORE_PEER_MSPCONFIGPATH=$ORG_ADMIN_HOME/msp
    logr "Instantiating chaincode on $PEER_HOST ..."
    peer chaincode instantiate \
       -C ${CHANNEL_NAME} \
@@ -341,6 +392,7 @@ function generateChannelTx {
    fi
 
    ORG=$1
+   export CORE_PEER_MSPCONFIGPATH=$ORG_ADMIN_HOME/msp
 
    log "Generating channel configuration transaction at $CHANNEL_TX_FILE"
    configtxgen -profile ${ORGS_PROFILE} \
@@ -371,6 +423,7 @@ function fetchConfigBlock {
    IFS=', ' read -r -a PORGS <<< "$PEER_ORGS"
    initPeerVars $1 $2
    switchToUserIdentity $1
+   export CORE_PEER_MSPCONFIGPATH=$ORG_ADMIN_HOME/msp
    peer channel fetch config $CONFIG_BLOCK_FILE -c $CHANNEL_NAME $ORDERER_CONN_ARGS
 }
 
@@ -392,8 +445,9 @@ function createConfigUpdatePayload {
    PATH_PREFIX=/tmp
    initPeerVars $1 $2
    switchToAdminIdentity
-   makeConfigTxYaml /${COMMON}
-   generateChannelTx $1
+   makeConfigTxYaml /${COMMON}#
+   generateChannelTx $#
+   export CORE_PEER_MSPCONFIGPATH=$ORG_ADMIN_HOME/msp
 
    configtxgen -printOrg $ORG > $PATH_PREFIX/$ORG.json
 

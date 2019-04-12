@@ -104,7 +104,7 @@ Profiles:
     Orderer:
       # Orderer Type: The orderer implementation to start
       # Available types are \"solo\" and \"kafka\"
-      OrdererType: $ORDERER_TYPE
+      OrdererType: ${ORDERER_TYPE}
       Addresses:"
 
    for ORG in $ORDERER_ORGS; do

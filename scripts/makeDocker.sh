@@ -35,8 +35,6 @@ function main {
    {
    createDockerFiles
    writeHeader
-   #IFS=', ' read -r -a OORGS <<< "$ORDERER_ORGS"
-   #IFS=', ' read -r -a PORGS <<< "$PEER_ORGS"
    writeRootFabricCA $ORGS
    if $USE_INTERMEDIATE_CA; then
       writeIntermediateFabricCA $ORGS

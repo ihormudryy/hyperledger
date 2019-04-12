@@ -22,7 +22,7 @@ export SUBNET="172.16.0.0/24"
 
 # Names and types of the orderer organizations
 export ORDERER_ORGS="$1"
-export ORDERER_TYPE="$4"
+export ORDERER_TYPE="kafka"
 
 # Names of the peer organizations
 export PEER_ORGS="$2"

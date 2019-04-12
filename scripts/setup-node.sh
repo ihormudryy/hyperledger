@@ -11,11 +11,11 @@
 # 2) Builds genesis block
 #
 SRC=$(dirname "$0")
-source $SRC/env.sh $ORDERER_ORGS "$PEER_ORGS" $NUM_PEERS
 source $SRC/make-config-tx.sh
 
 function setupOrderer {
    log "Beginning building channel artifacts ..."
+   source $SRC/env.sh $ORDERER_ORGS "$PEER_ORGS" $NUM_PEERS
    mkdir -p /${COMMON}/crypto${RANDOM_NUMBER}
    mkdir -p $ORDERER_GENERAL_LOCALMSPDIR
    registerOrdererIdentities
@@ -30,6 +30,7 @@ function setupOrderer {
 
 function setupPeer {
    log "Setting up peer ..."
+   source $SRC/env.sh $ORDERER_ORGS "$PEER_ORGS" $NUM_PEERS
    mkdir -p $CORE_PEER_MSPCONFIGPATH
    mkdir -p /${COMMON}/tls
    registerPeerIdentities
