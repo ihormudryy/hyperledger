@@ -5,7 +5,7 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
-SRC=$(dirname "$0")
+export SRC=$(dirname "$0")
 source $SRC/env.sh $ORDERER_ORGS "$PEER_ORGS" $NUM_PEERS
 source $SRC/make-config-tx.sh
 LOG_FILE_NAME=${LOGDIR}/chaincode-${CHAINCODE_NAME}-install.log
@@ -13,6 +13,7 @@ LOG_FILE_NAME=${LOGDIR}/chaincode-${CHAINCODE_NAME}-install.log
 function testChannel {
    IFS=', ' read -r -a OORGS <<< "$ORDERER_ORGS"
    IFS=', ' read -r -a PORGS <<< "$PEER_ORGS"
+   export PROFILE=$ORGS_PROFILE
    createChannel ${PORGS[0]}
    for ORG in $PEER_ORGS; do
       local COUNT=1
@@ -21,11 +22,29 @@ function testChannel {
          COUNT=$((COUNT+1))
       done
    done
-   logr "Congratulations! The testChannel tests ran successfully."
+   logr "Congratulations! The testChannel  has been successfully created."
 }
 
+function testMarblesChaincode {
+   set -e
+   IFS=', ' read -r -a OORGS <<< "$ORDERER_ORGS"
+   IFS=', ' read -r -a PORGS <<< "$PEER_ORGS"
+   export CHAINCODE_NAME="marbles"
+   export CHAINCODE_PATH="marbles/node"
+   export CHAINCODE_TYPE="node"
+   export CHAINCODE_VERSION="1.3"
+   for ORG in $PEER_ORGS; do
+      local COUNT=1
+      while [[ "$COUNT" -le $NUM_PEERS ]]; do
+         installChaincode $ORG $COUNT
+         instantiateChaincode $ORG $COUNT '{"Args":[]}'
+         COUNT=$((COUNT+1))
+      done
+   done
+}
 
 function testABACChaincode {
+   set -e
    IFS=', ' read -r -a OORGS <<< "$ORDERER_ORGS"
    IFS=', ' read -r -a PORGS <<< "$PEER_ORGS"
    export CHAINCODE_NAME="abac"
@@ -40,6 +59,7 @@ function testABACChaincode {
          COUNT=$((COUNT+1))
       done
    done
+   
    instantiateChaincode ${PORGS[0]} 1 '{"Args":["init","a","100","b","200"]}'
    chaincodeQuery ${PORGS[0]} 1 '{"Args":["query","a"]}' 100
    invokeChaincode ${PORGS[0]} 1 '{"Args":["invoke","a","b","10"]}'
@@ -135,18 +155,36 @@ function addAffiliation {
       --tls.certfiles $INT_CA_CHAINFILE
 }
 
+function updateSytemChannelConfig {
+   rm -rf /tmp/*
+   IFS=', ' read -r -a OORGS <<< "$ORDERER_ORGS"
+   IFS=', ' read -r -a PORGS <<< "$PEER_ORGS"
+   PEERS=$1
+   export RANDOM_NUMBER="testchainid"
+   source $SRC/env.sh $ORDERER_ORGS "$PEER_ORGS" $NUM_PEERS
+   mkdir -p /private/crypto${RANDOM_NUMBER}
+
+   export PROFILE=$ORGS_PROFILE
+   export CHANNEL_NAME="testchainid"
+
+   for ORG in $PEERS; do
+      fetchSystemChannelConfig
+      createConfigUpdatePayload $ORG 1 'Consortiums'
+      updateSystemConfigBlock ${OORGS[0]} 1
+      #joinChannel $ORG 1
+   done
+}
+
 function updateChannelConfig {
-   $SRC/env.sh $ORDERER_ORGS "$PEER_ORGS" $NUM_PEERS
    rm -rf /tmp/*
    fetchConfigBlock $1 $2
-   createConfigUpdatePayload $3 $2
+   createConfigUpdatePayload $3 $2 'Application'
    updateConfigBlock $1 $2
    local COUNT=1
    while [[ "$COUNT" -le $NUM_PEERS ]]; do
       joinChannel $3 $COUNT
       COUNT=$((COUNT+1))
    done
-   #updateChannel $1 $2
 }
 
 # Enroll as a peer admin and create the channel
@@ -159,8 +197,6 @@ function createChannel {
    makeConfigTxYaml /${COMMON}
    generateChannelTx ${1}
    export CORE_PEER_MSPCONFIGPATH=$ORG_ADMIN_HOME/msp
-   peer channel list
-   sleep 1
    logr "Creating channel '$CHANNEL_NAME' on $ORDERER_HOST ..."
    peer channel create \
       -c $CHANNEL_NAME \
@@ -216,13 +252,13 @@ function chaincodeQuery {
    # Continue to poll until we get a successful response or reach QUERY_TIMEOUT
    while test "$(($(date +%s)-starttime))" -lt "$QUERY_TIMEOUT"; do
       sleep 1
-
+      export CORE_PEER_MSPCONFIGPATH=$ORG_ADMIN_HOME/msp
       peer chaincode query \
          -C $CHANNEL_NAME \
          -n ${CHAINCODE_NAME} \
          -c $ARGS >& ${LOG_FILE_NAME}
 
-      VAL=$(cat ${LOG_FILE_NAME} | awk '/Query Result/ {print $NF}')
+      export VAL=$(cat ${LOG_FILE_NAME} | awk '/Query Result/ {print $NF}')
       if [ $? -eq 0 -a "$VALUE" = "$EXPECTED" ]; then
          logr "Query of channel '$CHANNEL_NAME' on peer '$PEER_HOST' was successful"
          set -e
@@ -332,7 +368,7 @@ function upgradeChaincode {
    makePolicy
    initPeerVars $1 $2
    switchToAdminIdentity
-   #export CORE_PEER_MSPCONFIGPATH=$ORG_ADMIN_HOME/msp
+   export CORE_PEER_MSPCONFIGPATH=$ORG_ADMIN_HOME/msp
    logr "Upgrading chaincode on $PEER_HOST ..."
    peer chaincode upgrade \
       -C ${CHANNEL_NAME} \
@@ -354,7 +390,7 @@ function instantiateChaincode {
    makePolicy
    initPeerVars $1 $2
    switchToAdminIdentity
-   #export CORE_PEER_MSPCONFIGPATH=$ORG_ADMIN_HOME/msp
+   export CORE_PEER_MSPCONFIGPATH=$ORG_ADMIN_HOME/msp
    logr "Instantiating chaincode on $PEER_HOST ..."
    peer chaincode instantiate \
       -C ${CHANNEL_NAME} \
@@ -395,7 +431,7 @@ function generateChannelTx {
    export CORE_PEER_MSPCONFIGPATH=$ORG_ADMIN_HOME/msp
 
    log "Generating channel configuration transaction at $CHANNEL_TX_FILE"
-   configtxgen -profile ${ORGS_PROFILE} \
+   configtxgen -profile ${PROFILE} \
       -outputCreateChannelTx $CHANNEL_TX_FILE \
       -channelID $CHANNEL_NAME
 
@@ -406,7 +442,7 @@ function generateChannelTx {
    for ORG in $PEER_ORGS; do
       initOrgVars $ORG
       log "Generating anchor peer update transaction for $ORG at $ANCHOR_TX_FILE"
-      configtxgen -profile ${ORGS_PROFILE} \
+      configtxgen -profile ${PROFILE} \
          -outputAnchorPeersUpdate $ANCHOR_TX_FILE \
          -channelID $CHANNEL_NAME -asOrg $ORG
 
@@ -427,26 +463,59 @@ function fetchConfigBlock {
    peer channel fetch config $CONFIG_BLOCK_FILE -c $CHANNEL_NAME $ORDERER_CONN_ARGS
 }
 
+function fetchSystemChannelConfig {
+   IFS=', ' read -r -a OORGS <<< "$ORDERER_ORGS"
+   PATH_PREFIX=/tmp
+   initOrdererVars ${OORGS[0]} 1
+
+   CORE_PEER_LOCALMSPID=$ORDERER_GENERAL_LOCALMSPID
+   ORDERER_CA=$CA_CHAINFILE
+   CORE_PEER_TLS_ROOTCERT_FILE=$CA_CHAINFILE
+   CORE_PEER_MSPCONFIGPATH=$ORG_ADMIN_HOME/msp
+   initOrdererVars ${OORGS[0]} 1
+   switchToAdminIdentity
+   set -x
+   peer channel fetch config $CONFIG_BLOCK_FILE -c testchainid $ORDERER_CONN_ARGS
+   set +x
+   #configtxlator proto_decode \
+   #   --input $PATH_PREFIX/system_config_block.pb \
+   #   --type common.Block > $PATH_PREFIX/system_config_block.json
+}
+
+function updateSystemConfigBlock {
+   logr "Updating the configuration block of the channel '$CHANNEL_NAME'"
+   logr "Fetching the configuration block of the channel '$CHANNEL_NAME'"
+   initOrdererVars ${OORGS[0]} 1
+   CORE_PEER_LOCALMSPID=$ORDERER_GENERAL_LOCALMSPID
+   ORDERER_CA=$CA_CHAINFILE
+   CORE_PEER_TLS_ROOTCERT_FILE=$CA_CHAINFILE
+   CORE_PEER_MSPCONFIGPATH=$ORG_ADMIN_HOME/msp
+   initOrdererVars ${OORGS[0]} 1
+   switchToAdminIdentity
+   peer channel update -f $CONFIG_UPDATE_ENVELOPE_FILE -c $CHANNEL_NAME $ORDERER_CONN_ARGS
+   peer channel fetch config /tmp/config_block.pb -c $CHANNEL_NAME $ORDERER_CONN_ARGS
+}
+
 function updateConfigBlock {
    logr "Updating the configuration block of the channel '$CHANNEL_NAME'"
    logr "Fetching the configuration block of the channel '$CHANNEL_NAME'"
    IFS=', ' read -r -a OORGS <<< "$ORDERER_ORGS"
    initOrdererVars ${OORGS[0]} 1
-   IFS=', ' read -r -a PORGS <<< "$PEER_ORGS"
    initPeerVars $1 $2
    switchToUserIdentity $1
-   peer channel update -f $CONFIG_UPDATE_ENVELOPE_FILE -c $CHANNEL_NAME $ORDERER_CONN_ARGS
    export CORE_PEER_MSPCONFIGPATH=$ORG_ADMIN_HOME/msp
-   peer channel fetch config  /tmp/config_block.pb -c $CHANNEL_NAME $ORDERER_CONN_ARGS
+   peer channel update -f $CONFIG_UPDATE_ENVELOPE_FILE -c $CHANNEL_NAME $ORDERER_CONN_ARGS
+   peer channel fetch config /tmp/config_block.pb -c $CHANNEL_NAME $ORDERER_CONN_ARGS
 }
 
 function createConfigUpdatePayload {
    ORG=$1
    PATH_PREFIX=/tmp
+   GROUP=$3
    initPeerVars $1 $2
    switchToAdminIdentity
-   makeConfigTxYaml /${COMMON}#
-   generateChannelTx $#
+   makeConfigTxYaml /${COMMON}
+   generateChannelTx $1
    export CORE_PEER_MSPCONFIGPATH=$ORG_ADMIN_HOME/msp
 
    configtxgen -printOrg $ORG > $PATH_PREFIX/$ORG.json
@@ -456,7 +525,7 @@ function createConfigUpdatePayload {
       --type common.Block | jq .data.data[0].payload.data.config > $PATH_PREFIX/config.json
 
    set -x
-   jq -s '.[0] * {"channel_group":{"groups":{"Application":{"groups": {'$ORG':.[1]}}}}}' \
+   jq -s '.[0] * {"channel_group":{"groups":{"'$GROUP'":{"groups": {'$ORG':.[1]}}}}}' \
    $PATH_PREFIX/config.json $PATH_PREFIX/$ORG.json > $PATH_PREFIX/updated_config.json
    set +x
 
@@ -503,7 +572,7 @@ function finish {
 
 function logr {
    log $*
-   log $* >> $RUN_SUMPATH
+   #log $* >> $RUN_SUMPATH
 }
 
 function fatalr {
@@ -511,4 +580,4 @@ function fatalr {
    exit 1
 }
 
-$1 $2 $3 $4 $5
+$1 $2 $3 $4 $5 $6

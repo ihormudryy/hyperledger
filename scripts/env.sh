@@ -79,7 +79,7 @@ export SETUP_LOGFILE=${LOGDIR}/setup.log
 export RUN_LOGFILE=${LOGDIR}/run.log
 
 # The run container's summary log file
-export RUN_SUMFILE=${LOGDIR}/run.sum
+export RUN_SUMqFILE=${LOGDIR}/run.sum
 export RUN_SUMPATH="${RUN_SUMFILE}"
 
 # Run success and failure files
@@ -160,7 +160,7 @@ function initOrgVars {
 function initOrdererVars {
    if [ $# -ne 2 ]; then
       echo "Usage: initOrdererVars <ORG> <NUM>"
-      #exit 1
+      exit 1
    fi
    initOrgVars $1
    ORG=$1
