@@ -161,13 +161,14 @@ function updateSytemChannelConfig {
    IFS=', ' read -r -a PORGS <<< "$PEER_ORGS"
    PEERS=$1
    export RANDOM_NUMBER="testchainid"
-   source $SRC/env.sh $ORDERER_ORGS "$PEER_ORGS" $NUM_PEERS
+   #source $SRC/env.sh $ORDERER_ORGS "$PEER_ORGS" $NUM_PEERS
    mkdir -p /private/crypto${RANDOM_NUMBER}
 
    export PROFILE=$ORGS_PROFILE
    export CHANNEL_NAME="testchainid"
 
    for ORG in $PEERS; do
+      echo $ORG
       fetchSystemChannelConfig
       createConfigUpdatePayload $ORG 1 'Consortiums'
       updateSystemConfigBlock ${OORGS[0]} 1
@@ -349,12 +350,16 @@ function installChaincode {
    switchToAdminIdentity
    logr "Installing chaincode on $PEER_HOST ..."
    export CORE_PEER_MSPCONFIGPATH=$ORG_ADMIN_HOME/msp
+   CHAINCODE_PREFIX="github.com/hyperledger/fabric-samples"
+   if [ $CHAINCODE_TYPE = "node" ]; then
+      CHAINCODE_PREFIX="$GOPATH/src/$CHAINCODE_PREFIX"
+   fi
    set -x
    peer chaincode install \
       -n ${CHAINCODE_NAME} \
       -v ${CHAINCODE_VERSION} \
       -l ${CHAINCODE_TYPE} \
-      -p github.com/hyperledger/fabric-samples/${CHAINCODE_PATH}
+      -p $CHAINCODE_PREFIX/${CHAINCODE_PATH}
    set +x
 }
 
@@ -465,15 +470,15 @@ function fetchConfigBlock {
 
 function fetchSystemChannelConfig {
    IFS=', ' read -r -a OORGS <<< "$ORDERER_ORGS"
-   PATH_PREFIX=/tmp
-   initOrdererVars ${OORGS[0]} 1
+   IFS=', ' read -r -a PORGS <<< "$PEER_ORGS"
 
-   CORE_PEER_LOCALMSPID=$ORDERER_GENERAL_LOCALMSPID
-   ORDERER_CA=$CA_CHAINFILE
-   CORE_PEER_TLS_ROOTCERT_FILE=$CA_CHAINFILE
-   CORE_PEER_MSPCONFIGPATH=$ORG_ADMIN_HOME/msp
+   PATH_PREFIX=/tmp
+
    initOrdererVars ${OORGS[0]} 1
-   switchToAdminIdentity
+   export CORE_PEER_LOCALMSPID=$ORDERER_GENERAL_LOCALMSPID
+   export ORDERER_CA=$CA_CHAINFILE
+   export CORE_PEER_TLS_ROOTCERT_FILE=$CA_CHAINFILE
+   export CORE_PEER_MSPCONFIGPATH=$ORG_ADMIN_HOME/msp
    set -x
    peer channel fetch config $CONFIG_BLOCK_FILE -c testchainid $ORDERER_CONN_ARGS
    set +x
@@ -525,7 +530,8 @@ function createConfigUpdatePayload {
       --type common.Block | jq .data.data[0].payload.data.config > $PATH_PREFIX/config.json
 
    set -x
-   jq -s '.[0] * {"channel_group":{"groups":{"'$GROUP'":{"groups": {'$ORG':.[1]}}}}}' \
+   #jq -s '.[0] * {"channel_group":{"groups":{"'$GROUP'":{"groups": {'$ORG':.[1]}}}}}' \
+   jq -s '.[0] * {"channel_group":{"groups":{"'$GROUP'":{"groups": {"SampleConsortium": {"groups": {'$ORG':.[1]}}}}}}}' \
    $PATH_PREFIX/config.json $PATH_PREFIX/$ORG.json > $PATH_PREFIX/updated_config.json
    set +x
 
