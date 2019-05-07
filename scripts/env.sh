@@ -108,11 +108,11 @@ function initOrgVars {
    ORG=$1
    ANCHOR_TX_FILE=/${COMMON}/orgs/${ORG}/anchors.tx
    ORG_CONTAINER_NAME=${ORG//./-}
-   ROOT_CA_HOST=rca-${ORG}
-   ROOT_CA_NAME=rca-${ORG}
+   ROOT_CA_HOST=rca.${ORG}.com
+   ROOT_CA_NAME=rca.${ORG}.com
    ROOT_CA_LOGFILE=$LOGDIR/${ROOT_CA_NAME}.log
-   INT_CA_HOST=ica-${ORG}
-   INT_CA_NAME=ica-${ORG}
+   INT_CA_HOST=ica.${ORG}.com
+   INT_CA_NAME=ica.${ORG}.com
    INT_CA_LOGFILE=$LOGDIR/${INT_CA_NAME}.log
 
    # Root CA admin identity
@@ -165,8 +165,8 @@ function initOrdererVars {
    initOrgVars $1
    ORG=$1
    NUM=$2
-   ORDERER_HOST=orderer${NUM}-${ORG}
-   ORDERER_NAME=orderer${NUM}-${ORG}
+   ORDERER_HOST=orderer${NUM}.${ORG}.org
+   ORDERER_NAME=orderer${NUM}.${ORG}.org
    ORDERER_PASS=${ORDERER_NAME}pw
    ORDERER_NAME_PASS=${ORDERER_NAME}:${ORDERER_PASS}
    ORDERER_LOGFILE=$LOGDIR/${ORDERER_NAME}.log
@@ -220,8 +220,8 @@ function initPeerVars {
    COUNT=$2
    initOrgVars $1
    NUM=$2
-   PEER_HOST=peer${NUM}-${ORG}
-   PEER_NAME=peer${NUM}-${ORG}
+   PEER_HOST=peer${NUM}.${ORG}.com
+   PEER_NAME=peer${NUM}.${ORG}.com
    PEER_PASS=${PEER_NAME}pw
    PEER_NAME_PASS=${PEER_NAME}:${PEER_PASS}
    PEER_LOGFILE=$LOGDIR/${PEER_NAME}.log

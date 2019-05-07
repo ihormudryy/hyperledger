@@ -50,10 +50,10 @@ function testABACChaincode {
    export CHAINCODE_NAME="abac"
    export CHAINCODE_PATH="abac/go"
    export CHAINCODE_TYPE="golang"
-
    export CHAINCODE_VERSION="3.3"
    for ORG in $PEER_ORGS; do
       local COUNT=1
+      echo "ORG $ORG $NUM_PEERS"
       while [[ "$COUNT" -le $NUM_PEERS ]]; do
          installChaincode $ORG $COUNT
          COUNT=$((COUNT+1))
@@ -161,7 +161,6 @@ function updateSytemChannelConfig {
    IFS=', ' read -r -a PORGS <<< "$PEER_ORGS"
    PEERS=$1
    export RANDOM_NUMBER="testchainid"
-   #source $SRC/env.sh $ORDERER_ORGS "$PEER_ORGS" $NUM_PEERS
    mkdir -p /private/crypto${RANDOM_NUMBER}
 
    export PROFILE=$ORGS_PROFILE
@@ -530,9 +529,13 @@ function createConfigUpdatePayload {
       --type common.Block | jq .data.data[0].payload.data.config > $PATH_PREFIX/config.json
 
    set -x
-   #jq -s '.[0] * {"channel_group":{"groups":{"'$GROUP'":{"groups": {'$ORG':.[1]}}}}}' \
-   jq -s '.[0] * {"channel_group":{"groups":{"'$GROUP'":{"groups": {"SampleConsortium": {"groups": {'$ORG':.[1]}}}}}}}' \
-   $PATH_PREFIX/config.json $PATH_PREFIX/$ORG.json > $PATH_PREFIX/updated_config.json
+   if [ $GROUP = "Consortiums" ]; then
+      jq -s '.[0] * {"channel_group":{"groups":{"'$GROUP'":{"groups": {"SampleConsortium": {"groups": {'$ORG':.[1]}}}}}}}' \
+      $PATH_PREFIX/config.json $PATH_PREFIX/$ORG.json > $PATH_PREFIX/updated_config.json
+   elif [ $GROUP = "Application" ]; then
+      jq -s '.[0] * {"channel_group":{"groups":{"'$GROUP'":{"groups": {'$ORG':.[1]}}}}}' \
+      $PATH_PREFIX/config.json $PATH_PREFIX/$ORG.json > $PATH_PREFIX/updated_config.json
+   fi
    set +x
 
    configtxlator proto_encode \
