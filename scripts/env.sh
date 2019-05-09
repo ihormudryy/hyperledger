@@ -166,6 +166,7 @@ function initOrdererVars {
       echo "Usage: initOrdererVars <ORG> <NUM>"
       exit 1
    fi
+   COUNT=$2
    initOrgVars $1
    ORG=$1
    NUM=$2

@@ -57,7 +57,6 @@ function testABACChaincode {
 
    for ORG in $PEER_ORGS; do
       local COUNT=1
-      echo "ORG $ORG $NUM_PEERS"
       while [[ "$COUNT" -le $NUM_PEERS ]]; do
          installChaincode $ORG $COUNT
          COUNT=$((COUNT+1))
@@ -95,7 +94,6 @@ function testHighThroughputChaincode {
    export CHAINCODE_TYPE="golang"
    export CHAINCODE_VERSION="1.3"
    export LOG_FILE_NAME=${LOGDIR}/chaincode-${CHAINCODE_NAME}-install.log
-   echo "HELLO $PEER_ORGS"
    sleep 2
    for ORG in $PEER_ORGS; do
       local COUNT=1

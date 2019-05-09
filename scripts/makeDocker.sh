@@ -40,7 +40,7 @@ function main {
       writeIntermediateFabricCA $ORGS
    fi
    writeStartFabric
-   writeBlockchainExplorer
+   #writeBlockchainExplorer
    #writeHyperledgerComposer
    } > $DOCKER_DIR/docker-compose.yaml
    log "Created docker-compose.yaml"
@@ -356,7 +356,7 @@ function writeBlockchainExplorer {
 function writeRootCA {
    echo "  $ROOT_CA_NAME:
     container_name: $ROOT_CA_NAME
-    image: hyperledger/fabric-ca
+    image: hyperledger/fabric-ca:$FABRIC_TAG
     command: /bin/bash -c '/scripts/start-root-ca.sh 2>&1 | tee /$ROOT_CA_LOGFILE'
     environment:
       - ORDERER_ORGS="$ORDERER_ORGS"
@@ -383,7 +383,7 @@ function writeRootCA {
 function writeIntermediateCA {
    echo "  $INT_CA_NAME:
     container_name: $INT_CA_NAME
-    image: hyperledger/fabric-ca
+    image: hyperledger/fabric-ca:$FABRIC_TAG
     command: /bin/bash -c '/scripts/start-intermediate-ca.sh $ORG 2>&1 | tee /$INT_CA_LOGFILE'
     environment:
       - ORDERER_ORGS="$ORDERER_ORGS"
