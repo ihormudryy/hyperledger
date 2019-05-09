@@ -8,7 +8,6 @@
 export SRC=$(dirname "$0")
 source $SRC/env.sh $ORDERER_ORGS "$PEER_ORGS" $NUM_PEERS
 source $SRC/make-config-tx.sh
-LOG_FILE_NAME=${LOGDIR}/chaincode-${CHAINCODE_NAME}-install.log
 
 function testChannel {
    IFS=', ' read -r -a OORGS <<< "$ORDERER_ORGS"
@@ -27,12 +26,15 @@ function testChannel {
 
 function testMarblesChaincode {
    set -e
+   
    IFS=', ' read -r -a OORGS <<< "$ORDERER_ORGS"
    IFS=', ' read -r -a PORGS <<< "$PEER_ORGS"
    export CHAINCODE_NAME="marbles"
    export CHAINCODE_PATH="marbles/node"
    export CHAINCODE_TYPE="node"
    export CHAINCODE_VERSION="1.3"
+   export LOG_FILE_NAME=${LOGDIR}/chaincode-${CHAINCODE_NAME}-install.log
+
    for ORG in $PEER_ORGS; do
       local COUNT=1
       while [[ "$COUNT" -le $NUM_PEERS ]]; do
@@ -51,6 +53,8 @@ function testABACChaincode {
    export CHAINCODE_PATH="abac/go"
    export CHAINCODE_TYPE="golang"
    export CHAINCODE_VERSION="3.3"
+   export LOG_FILE_NAME=${LOGDIR}/chaincode-${CHAINCODE_NAME}-install.log
+
    for ORG in $PEER_ORGS; do
       local COUNT=1
       echo "ORG $ORG $NUM_PEERS"
@@ -90,6 +94,7 @@ function testHighThroughputChaincode {
    export CHAINCODE_PATH="high_throughput"
    export CHAINCODE_TYPE="golang"
    export CHAINCODE_VERSION="1.3"
+   export LOG_FILE_NAME=${LOGDIR}/chaincode-${CHAINCODE_NAME}-install.log
    echo "HELLO $PEER_ORGS"
    sleep 2
    for ORG in $PEER_ORGS; do

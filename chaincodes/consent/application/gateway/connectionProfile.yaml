@@ -1,0 +1,75 @@
+name: "consent_management"
+
+#
+# Any properties with an "x-" prefix will be treated as application-specific, exactly like how naming
+# in HTTP headers or swagger properties work. The SDK will simply ignore these fields and leave
+# them for the applications to process. This is a mechanism for different components of an application
+# to exchange information that are not part of the standard schema described below. In particular,
+# the "x-type" property with the "hlfv1" value example below is used by Hyperledger Composer to
+# determine the type of Fabric networks (v0.6 vs. v1.0) it needs to work with.
+#
+x-type: "hlfv1"
+
+#
+# Describe what the target network is/does.
+#
+description: "A gateway connection file for the consent management networks"
+
+#
+# Schema version of the content. Used by the SDK to apply the corresponding parsing rules.
+#
+version: "1.0"
+
+channels:
+  channel26704:
+    peers:
+      peer1.org1.com:
+        endorsingPeer: true
+        eventSource: true
+
+      peer1.org2.com:
+        endorsingPeer: true
+        eventSource: true
+
+peers:
+  peer1.org1.com:
+    url: grpcs://peer1.org1.com:7051
+    grpcOptions:
+      ssl-target-name-override: peer1.org1.com
+    tlsCACerts:
+      path: /private/org1-ca-cert.pem
+
+  peer1.org2.com:
+    url: grpcs://peer1.org2.com:7051
+    grpcOptions:
+      ssl-target-name-override: peer1.org2.com
+    tlsCACerts:
+      path: /private/org2-ca-cert.pem
+
+orderers:
+  orderer1.blockchain-technology.org:
+    url: grpcs://orderer1.blockchain-technology.org:7050
+    # these are standard properties defined by the gRPC library
+    # they will be passed in as-is to gRPC client constructor
+    grpcOptions:
+      ssl-target-name-override: orderer1.blockchain-technology.org
+
+# Fabric-CA is a special kind of Certificate Authority provided by Hyperledger Fabric which allows
+# certificate management to be done via REST APIs. Application may choose to use a standard
+# Certificate Authority instead of Fabric-CA, in which case this section would not be specified.
+#
+certificateAuthorities:
+  ca-org1:
+    url: http://ica.org1.com:7054
+    # the properties specified under this object are passed to the 'http' client verbatim when
+    # making the request to the Fabric-CA server
+    httpOptions:
+      verify: false
+
+    # Fabric-CA supports dynamic user enrollment via REST APIs. A "root" user, a.k.a registrar, is
+    # needed to enroll and invoke new users.
+    registrar:
+      - enrollId: ica-org1-admin
+        enrollSecret: ica-org1-adminpw
+    # [Optional] The optional name of the CA.
+    caName: ica.org1.com

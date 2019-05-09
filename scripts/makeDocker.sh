@@ -40,7 +40,7 @@ function main {
       writeIntermediateFabricCA $ORGS
    fi
    writeStartFabric
-   #writeBlockchainExplorer
+   writeBlockchainExplorer
    #writeHyperledgerComposer
    } > $DOCKER_DIR/docker-compose.yaml
    log "Created docker-compose.yaml"
@@ -310,58 +310,47 @@ function writeHyperledgerComposer {
     ports:
       - 8080:8080
     networks:
-      - $NETWORK
-    depends_on:
-      - setup"
+      - $NETWORK"
 } 
 
 function writeBlockchainExplorer {
-   echo "  
+   writeBlockchainExplorerService
+   echo "
   blockchain-explorer:
     container_name: blockchain-explorer
-    image: hyperledger/explorer
+    image: hyperledger/local-explorer
     environment:
-      - DATABASE_HOST=192.168.10.11
+      - DATABASE_HOST=172.16.0.250
       - DATABASE_USERNAME=$EXPLORER_DB_USER
       - DATABASE_PASSWORD=$EXPLORER_DB_PWD
     volumes:
-      - ${DATA_DIR}:/$DATA
-      - ./../../blockchain-explorer:/opt/explorer
       - ./config.json:/opt/explorer/app/platform/fabric/config.json
-      - ${DATA_DIR}:/tmp/crypto
+      - ${COMMON}:/${COMMON}
     ports:
       - 8000:8080
     networks:
       - $NETWORK
     depends_on:
-      - setup
       - blockchain-explorer-db
     
   blockchain-explorer-db:
     container_name: blockchain-explorer-db
-    image: hyperledger/explorer-db
+    image: hyperledger/local-explorer-db
     working_dir: /opt
     environment:
-      - POSTGRES_HOST=blockchain-explorer-db
-      - POSTGRES_PORT=5432
-      - POSTGRES_DATABASE=$EXPLORER_DB_NAME
-      - POSTGRES_USERNAME=$EXPLORER_DB_USER
-      - POSTGRES_PASSWORD=$EXPLORER_DB_PWD
       - DATABASE_HOST=blockchain-explorer-db
       - DATABASE_PORT=5432
       - DATABASE_DATABASE=$EXPLORER_DB_NAME
       - DATABASE_USERNAME=$EXPLORER_DB_USER
       - DATABASE_PASSWORD=$EXPLORER_DB_PWD
-    command: /bin/bash /opt/createdb.sh
+    command: >
+      bash -c \"cp /opt/createdb.sh /docker-entrypoint-initdb.d/
+      && postgres\"
     volumes:
       - ${SCRIPTS_DIR}:/scripts
-    ports:
-      - 5432:5432
     networks:
       $NETWORK:
-         ipv4_address: 192.168.10.11
-    depends_on:
-      - setup"
+         ipv4_address: 172.16.0.250"
 }
 
 function writeRootCA {

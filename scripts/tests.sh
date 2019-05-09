@@ -36,7 +36,22 @@ function main {
     ./run-fabric.sh testABACChaincode
 }
 
+function createUser {
+    cd /scripts
+    export ORDERER_ORGS="blockchain-technology"
+    export PEER_ORGS="org1"
+    export NUM_PEERS=2
+    IFS=', ' read -r -a OORGS <<< "$ORDERER_ORGS"
+    IFS=', ' read -r -a PORGS <<< "$PEER_ORGS"
+    source env.sh $ORDERER_ORGS "$PEER_ORGS" $NUM_PEER
+    ./env.sh $ORDERER_ORGS "$PEER_ORGS" $NUM_PEER
+    initOrdererVars ${OORGS[0]} 1
+    initPeerVars ${PORGS[0]} 1
+    ennrollNewUser $ORG_USER_HOME "mudryy" "mudryypw"
+}
+
 $1
+
 #./run-fabric.sh testABACChaincode
 #./run-fabric.sh testMarblesChaincode
 #./run-fabric.sh testHighThroughputChaincode
