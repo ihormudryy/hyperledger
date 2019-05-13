@@ -280,19 +280,14 @@ function writeSetupFabric {
     $TOOLS_BUILD
     stdin_open: true
     tty: true
-    working_dir: /opt/wrapper
-    command: npm start
     volumes:
       - ${SCRIPTS_DIR}:/scripts
       - ${LOGS_DIR}:/logs
       - ${SAMPLES_DIR}:/opt/gopath/src/github.com/hyperledger/fabric-samples
       - ${COMMON}:/${COMMON}
-      - ../httpWrapper/routes:/opt/wrapper/routes
     environment:
       - PEER_HOME=$MYHOME
       - ORDERER_HOME=$MYHOME
-    ports:
-      - 3000:3000
     networks:
       - $NETWORK"
 }
@@ -325,9 +320,7 @@ function writeHyperledgerComposer {
     ports:
       - 8080:8080
     networks:
-      - $NETWORK
-    depends_on:
-      - setup"
+      - $NETWORK"
 } 
 
 function writeBlockchainExplorer {
@@ -379,7 +372,7 @@ function writeBlockchainExplorer {
 function writeRootCA {
    echo "  $ROOT_CA_NAME:
     container_name: $ROOT_CA_NAME
-    image: hyperledger/fabric-ca
+    image: hyperledger/fabric-ca:$FABRIC_TAG
     command: /bin/bash -c '/scripts/start-root-ca.sh 2>&1 | tee /$ROOT_CA_LOGFILE'
     environment:
       - ORDERER_ORGS="$ORDERER_ORGS"
@@ -406,7 +399,7 @@ function writeRootCA {
 function writeIntermediateCA {
    echo "  $INT_CA_NAME:
     container_name: $INT_CA_NAME
-    image: hyperledger/fabric-ca
+    image: hyperledger/fabric-ca:$FABRIC_TAG
     command: /bin/bash -c '/scripts/start-intermediate-ca.sh $ORG 2>&1 | tee /$INT_CA_LOGFILE'
     environment:
       - ORDERER_ORGS="$ORDERER_ORGS"
@@ -528,7 +521,7 @@ function writePeer {
       - ORG_ADMIN_CERT=$ORG_ADMIN_CERT
       - RANDOM_NUMBER="$RANDOM_NUMBER""
    if [ $NUM -gt 1 ]; then
-      echo "      - CORE_PEER_GOSSIP_BOOTSTRAP=peer1-${ORG}:7051"
+      echo "      - CORE_PEER_GOSSIP_BOOTSTRAP=$PEER_HOST:7051"
    fi
    echo "    working_dir: $MYHOME
     command: /bin/bash -c '/scripts/start-peer.sh 2>&1 | tee /$PEER_LOGFILE'

@@ -30,6 +30,10 @@ export PEER_ORGS="$2"
 # Number of peers in each peer organization
 export NUM_PEERS="$3"
 
+export EXPLORER_DB_USER="hppoc"
+export EXPLORER_DB_PWD="password"
+export EXPLORER_DB_NAME="fabricexplorer"
+
 #
 # The remainder of this file contains variables which typically would not be changed.
 #
@@ -108,11 +112,11 @@ function initOrgVars {
    ORG=$1
    ANCHOR_TX_FILE=/${COMMON}/orgs/${ORG}/anchors.tx
    ORG_CONTAINER_NAME=${ORG//./-}
-   ROOT_CA_HOST=rca-${ORG}
-   ROOT_CA_NAME=rca-${ORG}
+   ROOT_CA_HOST=rca.${ORG}.com
+   ROOT_CA_NAME=rca.${ORG}.com
    ROOT_CA_LOGFILE=$LOGDIR/${ROOT_CA_NAME}.log
-   INT_CA_HOST=ica-${ORG}
-   INT_CA_NAME=ica-${ORG}
+   INT_CA_HOST=ica.${ORG}.com
+   INT_CA_NAME=ica.${ORG}.com
    INT_CA_LOGFILE=$LOGDIR/${INT_CA_NAME}.log
 
    # Root CA admin identity
@@ -139,8 +143,8 @@ function initOrgVars {
    ORG_MSP_ID=${ORG}MSP
    ORG_MSP_DIR=/${COMMON}/orgs/${ORG}/msp
    ORG_ADMIN_CERT=${ORG_MSP_DIR}/admincerts/cert.pem
-   ORG_ADMIN_HOME=/${COMMON}/orgs/${ORG}/admin
-   ORG_USER_HOME=/${COMMON}/orgs/${ORG}/user
+   ORG_ADMIN_HOME=/${COMMON}/orgs/${ORG}/${ADMIN_NAME}
+   ORG_USER_HOME=/${COMMON}/orgs/${ORG}/${USER_NAME}
    if test "$USE_INTERMEDIATE_CA" = "true"; then
       CA_NAME=$INT_CA_NAME
       CA_HOST=$INT_CA_HOST
@@ -162,11 +166,12 @@ function initOrdererVars {
       echo "Usage: initOrdererVars <ORG> <NUM>"
       exit 1
    fi
+   COUNT=$2
    initOrgVars $1
    ORG=$1
    NUM=$2
-   ORDERER_HOST=orderer${NUM}-${ORG}
-   ORDERER_NAME=orderer${NUM}-${ORG}
+   ORDERER_HOST=orderer${NUM}.${ORG}.org
+   ORDERER_NAME=orderer${NUM}.${ORG}.org
    ORDERER_PASS=${ORDERER_NAME}pw
    ORDERER_NAME_PASS=${ORDERER_NAME}:${ORDERER_PASS}
    ORDERER_LOGFILE=$LOGDIR/${ORDERER_NAME}.log
@@ -220,8 +225,8 @@ function initPeerVars {
    COUNT=$2
    initOrgVars $1
    NUM=$2
-   PEER_HOST=peer${NUM}-${ORG}
-   PEER_NAME=peer${NUM}-${ORG}
+   PEER_HOST=peer${NUM}.${ORG}.com
+   PEER_NAME=peer${NUM}.${ORG}.com
    PEER_PASS=${PEER_NAME}pw
    PEER_NAME_PASS=${PEER_NAME}:${PEER_PASS}
    PEER_LOGFILE=$LOGDIR/${PEER_NAME}.log
@@ -248,46 +253,56 @@ function initPeerVars {
    export CORE_PEER_GOSSIP_EXTERNALENDPOINT=$PEER_HOST:7051
    if [ $NUM -gt 1 ]; then
       # Point the non-anchor peers to the anchor peer, which is always the 1st peer
-      export CORE_PEER_GOSSIP_BOOTSTRAP=peer1-${ORG}:7051
+      export CORE_PEER_GOSSIP_BOOTSTRAP=$PEER_HOST:7051
    fi
    export ORDERER_CONN_ARGS="$ORDERER_PORT_ARGS \
    --keyfile $CORE_PEER_TLS_CLIENTKEY_FILE \
    --certfile $CORE_PEER_TLS_CLIENTCERT_FILE"
 }
 
+function ennrollNewUser {
+   export FABRIC_CA_CLIENT_HOME=$1
+   export FABRIC_CA_CLIENT_TLS_CERTFILES=$CA_CHAINFILE
+   dowait "$CA_NAME to start" 60 $CA_LOGFILE $CA_CHAINFILE
+   log "Enrolling user/admin for organization $CA_HOST with home directory $FABRIC_CA_CLIENT_HOME ..."
+   set -x
+
+   fabric-ca-client enroll \
+      -H $FABRIC_CA_CLIENT_HOME \
+      -d \
+      -u https://$2:$3@$CA_HOST:7054
+
+   #fabric-ca-client register -d --id.name $2 --id.secret $3
+
+   if [ $ADMINCERTS ]; then
+      ACDIR=$CORE_PEER_MSPCONFIGPATH/admincerts
+      mkdir -p $ACDIR
+      mkdir -p $(dirname "${ORG_ADMIN_CERT}")
+      mkdir -p $FABRIC_CA_CLIENT_HOME/msp/admincerts
+      mkdir -p $CORE_PEER_MSPCONFIGPATH/admincerts
+      cp $ORG_ADMIN_HOME/msp/signcerts/* $ORG_ADMIN_CERT
+      cp $ORG_ADMIN_HOME/msp/signcerts/* $ORG_ADMIN_HOME/msp/admincerts
+      cp $FABRIC_CA_CLIENT_HOME/msp/signcerts/* $CORE_PEER_MSPCONFIGPATH/admincerts
+      cp $ORG_ADMIN_HOME/msp/signcerts/* $ACDIR
+   fi
+   set +x
+}
+
 # Switch to the current org's admin identity. Enroll if not previously enrolled.
 function switchToAdminIdentity {
+   export FABRIC_CA_CLIENT_HOME=$ORG_ADMIN_HOME
+   export FABRIC_CA_CLIENT_TLS_CERTFILES=$CA_CHAINFILE
    if [ ! -d $ORG_ADMIN_HOME ]; then
-      dowait "$CA_NAME to start" 60 $CA_LOGFILE $CA_CHAINFILE
-      log "Enrolling admin '$ADMIN_NAME' with $CA_HOST ..."
-      export FABRIC_CA_CLIENT_HOME=$ORG_ADMIN_HOME
-      export FABRIC_CA_CLIENT_TLS_CERTFILES=$CA_CHAINFILE
-      fabric-ca-client enroll -d -u https://$ADMIN_NAME:$ADMIN_PASS@$CA_HOST:7054
-      # If admincerts are required in the MSP, copy the cert there now and to my local MSP also
-      if [ $ADMINCERTS ]; then
-         mkdir -p $(dirname "${ORG_ADMIN_CERT}")
-         cp $ORG_ADMIN_HOME/msp/signcerts/* $ORG_ADMIN_CERT
-         mkdir -p $ORG_ADMIN_HOME/msp/admincerts
-         cp $ORG_ADMIN_HOME/msp/signcerts/* $ORG_ADMIN_HOME/msp/admincerts
-      fi
+      ennrollNewUser $ORG_ADMIN_HOME $ADMIN_NAME $ADMIN_PASS
    fi
 }
 
 # Switch to the current org's user identity.  Enroll if not previously enrolled.
 function switchToUserIdentity {
    export FABRIC_CA_CLIENT_HOME=$ORG_USER_HOME
-   export CORE_PEER_MSPCONFIGPATH=$FABRIC_CA_CLIENT_HOME/msp
-   if [ ! -d $FABRIC_CA_CLIENT_HOME ]; then
-      dowait "$CA_NAME to start" 60 $CA_LOGFILE $CA_CHAINFILE
-      log "Enrolling user for organization $1 with home directory $FABRIC_CA_CLIENT_HOME ..."
-      export FABRIC_CA_CLIENT_TLS_CERTFILES=$CA_CHAINFILE
-      fabric-ca-client enroll -d -u https://$USER_NAME:$USER_PASS@$CA_HOST:7054
-      # Set up admincerts directory if required
-      if [ $ADMINCERTS ]; then
-         ACDIR=$CORE_PEER_MSPCONFIGPATH/admincerts
-         mkdir -p $ACDIR
-         cp $ORG_ADMIN_HOME/msp/signcerts/* $ACDIR
-      fi
+   export FABRIC_CA_CLIENT_TLS_CERTFILES=$CA_CHAINFILE
+   if [ ! -d $ORG_USER_HOME ]; then
+      ennrollNewUser $ORG_USER_HOME $USER_NAME $USER_PASS
    fi
 }
 
@@ -317,10 +332,9 @@ function copyAdminCert {
       fatal "Usage: copyAdminCert <targetMSPDIR>"
    fi
    if $ADMINCERTS; then
-      dstDir=$1/admincerts
-      mkdir -p $dstDir
       dowait "$ORGANIZATION administator to enroll" 60 $SETUP_LOGFILE $ORG_ADMIN_CERT
-      cp $ORG_ADMIN_CERT $dstDir
+      mkdir -p $1/admincerts
+      cp $ORG_ADMIN_CERT $1/admincerts
    fi
 }
 

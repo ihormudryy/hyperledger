@@ -64,7 +64,7 @@ docker-compose -f ${SDIR}/docker/docker-compose-setup.yaml up -d
 docker image build -t hyperledger/explorer ../blockchain-explorer/
 docker-compose -f ${SDIR}/docker/docker-compose.yaml up -d
 
-ORGANIZATIONS="org1 org2 org3 org4"
+ORGANIZATIONS="org1 org2 org3 org4 org5"
 IFS=', ' read -r -a OORGS <<< "$ORGANIZATIONS"
 MAX_PEERS=2
 for ORG in $ORGANIZATIONS; do

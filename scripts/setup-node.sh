@@ -41,8 +41,8 @@ function setupPeer {
    enroll $CORE_PEER_MSPCONFIGPATH
 }
 
+# Enroll to get an enrollment certificate and set up the core's local MSP directory
 function enroll {
-   # Enroll to get an enrollment certificate and set up the core's local MSP directory
    fabric-ca-client enroll -d -u $ENROLLMENT_URL -M $1
    finishMSPSetup $1
    copyAdminCert $1
@@ -74,11 +74,13 @@ function registerPeerIdentities {
    log "Registering $PEER_NAME with $CA_NAME"
    fabric-ca-client register -d --id.name $PEER_NAME --id.secret $PEER_PASS --id.type peer
    log "Registering admin identity with $CA_NAME"
+   set -x
    # The admin identity has the "admin" attribute which is added to ECert by default
    ATTRS="hf.Registrar.Roles=client,hf.Registrar.Attributes=*,hf.Revoker=true,hf.GenCRL=true,admin=true:ecert,abac.init=true:ecert"
    fabric-ca-client register -d --id.name $ADMIN_NAME --id.secret $ADMIN_PASS --id.attrs $ATTRS
    log "Registering user identity with $CA_NAME"
    fabric-ca-client register -d --id.name $USER_NAME --id.secret $USER_PASS
+   set +x
 }
 
 function getCACerts {
