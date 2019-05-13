@@ -22,7 +22,7 @@ export FABRIC_TAG=1.4.0
 SDIR=$(dirname "$0")
 cd ${SDIR}
 export RANDOM_NUMBER=${RANDOM}
-echo "First random number: $RANDOM_NUMBER"
+echo "Random seed number: $RANDOM_NUMBER"
 echo $RANDOM_NUMBER > ${SDIR}/scripts/random.txt
 export TYPE="kafka"
 export ORDERER="blockchain-technology"

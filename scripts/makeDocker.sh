@@ -216,14 +216,15 @@ function writeBlockchainExplorerService {
          \"mspid\": \"${ORDERER_ORGS}MSP\",
          \"fullpath\": false,
          \"adminPrivateKey\": {
-            \"path\": \"/${COMMON}/orgs/${ORDERER_ORGS}/admin1-${ORDERER_ORGS}/msp/keystore\"
+            \"path\": \"/${COMMON}/orgs/${ORDERER_ORGS}/admin/msp/keystore\"
          },
          \"signedCert\": {
-            \"path\": \"/${COMMON}/orgs/${ORDERER_ORGS}/admin1-${ORDERER_ORGS}/msp/signcerts\"
+            \"path\": \"/${COMMON}/orgs/${ORDERER_ORGS}/admin/msp/signcerts\"
          }  
       }," >> ${DOCKER_DIR}/config.json
    FIRST=true
    for ORG in $PEER_ORGS; do
+      initPeerVars $ORG $COUNT
       if [ $FIRST != true ]; then
          echo "," >> ${DOCKER_DIR}/config.json
       else
@@ -235,10 +236,10 @@ function writeBlockchainExplorerService {
             \"fullpath\": false,
             \"tlsEnable\": true," >> ${DOCKER_DIR}/config.json
       echo "\"adminPrivateKey\": {
-               \"path\": \"/${COMMON}/orgs/${ORG}/admin1-${ORG}/msp/keystore\"
+               \"path\": \"${ORG_ADMIN_HOME}/msp/keystore\"
             },
             \"signedCert\": {
-               \"path\": \"/${COMMON}/orgs/${ORG}/admin1-${ORG}/msp/signcerts\"
+               \"path\": \"${ORG_ADMIN_HOME}/msp/signcerts\"
             }
          }" >> ${DOCKER_DIR}/config.json
    done
@@ -333,11 +334,6 @@ function writeBlockchainExplorer {
     container_name: blockchain-explorer-db
     image: hyperledger/explorer-db:latest
     environment:
-      - POSTGRES_HOST=blockchain-explorer-db
-      - POSTGRES_PORT=5432
-      - POSTGRES_DATABASE=$EXPLORER_DB_NAME
-      - POSTGRES_USERNAME=$EXPLORER_DB_USER
-      - POSTGRES_PASSWORD=$EXPLORER_DB_PWD
       - DATABASE_HOST=blockchain-explorer-db
       - DATABASE_PORT=5432
       - DATABASE_DATABASE=$EXPLORER_DB_NAME
@@ -365,7 +361,7 @@ function writeBlockchainExplorer {
       - ./config.json:/opt/explorer/app/platform/fabric/config.json
       - ${LOGS_DIR}:/opt/explorer/logs
     ports:
-      - 8080:8080
+      - 8888:8080
     networks:
       - $NETWORK
     depends_on:
@@ -436,6 +432,7 @@ function writeIntermediateCA {
 function writeOrderer {
    export MYHOME=/etc/hyperledger/orderer
    echo "  $ORDERER_NAME:
+    restart: on-failure:10
     container_name: $ORDERER_NAME
     $ORDERER_BUILD
     environment:
@@ -466,8 +463,11 @@ function writeOrderer {
       - ORG_ADMIN_CERT=$ORG_ADMIN_CERT
       - ORDERER_KAFKA_TOPIC_REPLICATIONFACTOR=1
       - ORDERER_KAFKA_VERBOSE=true
-      - RANDOM_NUMBER="$RANDOM_NUMBER"
-    command: /bin/bash -c '/scripts/start-orderer.sh 2>&1 | tee /$ORDERER_LOGFILE'
+      - RANDOM_NUMBER="$RANDOM_NUMBER""
+   if [ $COUNT -eq 1 ]; then
+      echo "      - ENABLER_FLAG=true"
+   fi
+   echo "    command: /bin/bash -c '/scripts/start-orderer.sh 2>&1 | tee /$ORDERER_LOGFILE'
     volumes:
       - ${SCRIPTS_DIR}:/scripts
       - ${LOGS_DIR}:/logs
@@ -491,6 +491,7 @@ writeKafka
 function writePeer {
    export MYHOME=/opt/gopath/src/github.com/hyperledger/fabric/peer
    echo "  $PEER_NAME:
+    restart: on-failure:10
     container_name: $PEER_NAME
     $PEER_BUILD
     environment:
@@ -525,8 +526,16 @@ function writePeer {
       - COUNT=$COUNT
       - ORG_ADMIN_CERT=$ORG_ADMIN_CERT
       - RANDOM_NUMBER="$RANDOM_NUMBER""
-   if [ $NUM -gt 1 ]; then
-      echo "      - CORE_PEER_GOSSIP_BOOTSTRAP=$PEER_HOST:7051"
+   if [ $COUNT -gt 1 ]; then
+      echo "      - CORE_PEER_GOSSIP_BOOTSTRAP=peer1.${ORG}.com:7051"
+   fi
+   if [ $COUNT -eq 1 ]; then
+      echo "      - ENABLER_FLAG=true"
+   fi
+   if [ $COUNT -gt 1 ]; then
+      PREV_PEER="peer$((COUNT-1)).${ORG}.com"
+      echo "    depends_on:
+      - $PREV_PEER"
    fi
    echo "    working_dir: $MYHOME
     command: /bin/bash -c '/scripts/start-peer.sh 2>&1 | tee /$PEER_LOGFILE'
@@ -555,7 +564,7 @@ echo "
     container_name: kafka.${ORDERER_NAME}
     image: hyperledger/fabric-kafka:$FABRIC_CA_TAG
     depends_on:
-    - zookeeper.${ORDERER_NAME}
+      - zookeeper.${ORDERER_NAME}
     environment:
       - KAFKA_BROKER_ID=1
       - KAFKA_ZOOKEEPER_CONNECT=zookeeper.${ORDERER_NAME}:2181

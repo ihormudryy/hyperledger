@@ -57,29 +57,36 @@ function enrollCAAdmin {
 
 # Register any identities associated with the orderer
 function registerOrdererIdentities {
+   ERROR_CODE="Error Code: 63"
    initOrdererVars $ORGANIZATION $COUNT
    enrollCAAdmin
    log "Registering $ORDERER_NAME with $CA_NAME"
    fabric-ca-client register -d --id.name $ORDERER_NAME --id.secret $ORDERER_PASS --id.type orderer
-   log "Registering admin identity with $CA_NAME"
-   # The admin identity has the "admin" attribute which is added to ECert by default
-   fabric-ca-client register -d --id.name $ADMIN_NAME --id.secret $ADMIN_PASS --id.attrs "admin=true:ecert"
+   if [[ $(fabric-ca-client identity list --id $ADMIN_NAME 2>&1) == *"$ERROR_CODE"* ]]; then
+      log "Registering admin identity with $CA_NAME"
+      # The admin identity has the "admin" attribute which is added to ECert by default
+      fabric-ca-client register -d --id.name $ADMIN_NAME --id.secret $ADMIN_PASS --id.attrs "admin=true:ecert"
+   fi
 }
 
 # Register any identities associated with a peer
 function registerPeerIdentities {
-   initOrgVars $ORGANIZATION
-   enrollCAAdmin
+   ERROR_CODE="Error Code: 63"
    initPeerVars $ORGANIZATION $COUNT
+   enrollCAAdmin
    log "Registering $PEER_NAME with $CA_NAME"
    fabric-ca-client register -d --id.name $PEER_NAME --id.secret $PEER_PASS --id.type peer
-   log "Registering admin identity with $CA_NAME"
    set -x
    # The admin identity has the "admin" attribute which is added to ECert by default
-   ATTRS="hf.Registrar.Roles=client,hf.Registrar.Attributes=*,hf.Revoker=true,hf.GenCRL=true,admin=true:ecert,abac.init=true:ecert"
-   fabric-ca-client register -d --id.name $ADMIN_NAME --id.secret $ADMIN_PASS --id.attrs $ATTRS
-   log "Registering user identity with $CA_NAME"
-   fabric-ca-client register -d --id.name $USER_NAME --id.secret $USER_PASS
+   if [[ $(fabric-ca-client identity list --id $ADMIN_NAME 2>&1) == *"$ERROR_CODE"* ]]; then
+      log "Registering admin identity with $CA_NAME"
+      ATTRS="hf.Registrar.Roles=client,hf.Registrar.Attributes=*,hf.Revoker=true,hf.GenCRL=true,admin=true:ecert,abac.init=true:ecert"
+      fabric-ca-client register -d --id.name $ADMIN_NAME --id.secret $ADMIN_PASS --id.attrs $ATTRS
+   fi
+   if [[ $(fabric-ca-client identity list --id $ADMIN_NAME 2>&1) == *"$ERROR_CODE"* ]]; then
+      log "Registering user identity with $CA_NAME"
+      fabric-ca-client register -d --id.name $USER_NAME --id.secret $USER_PASS
+   fi
    set +x
 }
 

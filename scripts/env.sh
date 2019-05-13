@@ -132,10 +132,10 @@ function initOrgVars {
    INT_CA_ADMIN_PASS=${INT_CA_ADMIN_USER}pw
    INT_CA_ADMIN_USER_PASS=${INT_CA_ADMIN_USER}:${INT_CA_ADMIN_PASS}
    # Admin identity for the org
-   ADMIN_NAME=admin${COUNT}-${ORG}
+   ADMIN_NAME=admin
    ADMIN_PASS=${ADMIN_NAME}pw
    # Typical user identity for the org
-   USER_NAME=user-${ORG}${COUNT}
+   USER_NAME=user
    USER_PASS=${USER_NAME}pw
 
    ROOT_CA_CERTFILE=/${COMMON}/${ORG}-ca-cert.pem
@@ -253,7 +253,7 @@ function initPeerVars {
    export CORE_PEER_GOSSIP_EXTERNALENDPOINT=$PEER_HOST:7051
    if [ $NUM -gt 1 ]; then
       # Point the non-anchor peers to the anchor peer, which is always the 1st peer
-      export CORE_PEER_GOSSIP_BOOTSTRAP=$PEER_HOST:7051
+      export CORE_PEER_GOSSIP_BOOTSTRAP=peer1.${ORG}.com:7051
    fi
    export ORDERER_CONN_ARGS="$ORDERER_PORT_ARGS \
    --keyfile $CORE_PEER_TLS_CLIENTKEY_FILE \

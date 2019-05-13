@@ -13,7 +13,6 @@ function getChannel {
   initPeerVars "$PEER_ORGS" 1
   switchToAdminIdentity
   export CORE_PEER_MSPCONFIGPATH=$ORG_ADMIN_HOME/msp
-  echo $CORE_PEER_MSPCONFIGPATH
   # peer channel list | grep "channel$RANDOM_NUMBER"
   peer channel getinfo -c "channel$RANDOM_NUMBER"
 }
@@ -152,8 +151,6 @@ function addAffiliation {
    IFS=', ' read -r -a OORGS <<< "$ORDERER_ORGS"
    IFS=', ' read -r -a PORGS <<< "$PEER_ORGS"
    initOrdererVars ${OORGS[0]} 1
-   initOrgVars $ORDERER_ORGS
-
    initPeerVars ${PORGS[0]} 1
    switchToAdminIdentity
    export CORE_PEER_MSPCONFIGPATH=$ORG_ADMIN_HOME/msp
@@ -579,7 +576,7 @@ function createConfigUpdatePayload {
    # sign by majority
    for ORGAN in $PEER_ORGS; do
       initPeerVars $ORGAN 1
-      export CORE_PEER_MSPCONFIGPATH=/${COMMON}/orgs/${ORGAN}/admin/msp
+      export CORE_PEER_MSPCONFIGPATH=$ORG_ADMIN_HOME/msp
       peer channel signconfigtx -f $CONFIG_UPDATE_ENVELOPE_FILE
    done
 }
