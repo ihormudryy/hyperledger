@@ -11,8 +11,9 @@ source $SRC/make-config-tx.sh
 
 function getChannel {
   initPeerVars "$PEER_ORGS" 1
-  export CORE_PEER_MSPCONFIGPATH=/${COMMON}/orgs/${PEER_ORGS}/admin/msp
-
+  switchToAdminIdentity
+  export CORE_PEER_MSPCONFIGPATH=$ORG_ADMIN_HOME/msp
+  echo $CORE_PEER_MSPCONFIGPATH
   # peer channel list | grep "channel$RANDOM_NUMBER"
   peer channel getinfo -c "channel$RANDOM_NUMBER"
 }
@@ -445,7 +446,11 @@ function generateChannelTx {
    ORG=$1
    export CORE_PEER_MSPCONFIGPATH=$ORG_ADMIN_HOME/msp
 
-   log "Generating channel configuration transaction at $CHANNEL_TX_FILE"
+   if [ -z "$PROFILE" ]; then
+    PROFILE=$ORGS_PROFILE
+   fi
+
+   log "Generating channel configuration transaction $PROFILE at $CHANNEL_TX_FILE"
    configtxgen -profile ${PROFILE} \
       -outputCreateChannelTx $CHANNEL_TX_FILE \
       -channelID $CHANNEL_NAME

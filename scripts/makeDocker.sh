@@ -216,10 +216,10 @@ function writeBlockchainExplorerService {
          \"mspid\": \"${ORDERER_ORGS}MSP\",
          \"fullpath\": false,
          \"adminPrivateKey\": {
-            \"path\": \"/${COMMON}/orgs/${ORDERER_ORGS}/admin/msp/keystore\"
+            \"path\": \"/${COMMON}/orgs/${ORDERER_ORGS}/admin1-${ORDERER_ORGS}/msp/keystore\"
          },
          \"signedCert\": {
-            \"path\": \"/${COMMON}/orgs/${ORDERER_ORGS}/admin/msp/signcerts\"
+            \"path\": \"/${COMMON}/orgs/${ORDERER_ORGS}/admin1-${ORDERER_ORGS}/msp/signcerts\"
          }  
       }," >> ${DOCKER_DIR}/config.json
    FIRST=true
@@ -235,10 +235,10 @@ function writeBlockchainExplorerService {
             \"fullpath\": false,
             \"tlsEnable\": true," >> ${DOCKER_DIR}/config.json
       echo "\"adminPrivateKey\": {
-               \"path\": \"/${COMMON}/orgs/${ORG}/admin/msp/keystore\"
+               \"path\": \"/${COMMON}/orgs/${ORG}/admin1-${ORG}/msp/keystore\"
             },
             \"signedCert\": {
-               \"path\": \"/${COMMON}/orgs/${ORG}/admin/msp/signcerts\"
+               \"path\": \"/${COMMON}/orgs/${ORG}/admin1-${ORG}/msp/signcerts\"
             }
          }" >> ${DOCKER_DIR}/config.json
    done
@@ -280,14 +280,19 @@ function writeSetupFabric {
     $TOOLS_BUILD
     stdin_open: true
     tty: true
+    working_dir: /opt/wrapper
+    command: npm start
     volumes:
       - ${SCRIPTS_DIR}:/scripts
       - ${LOGS_DIR}:/logs
       - ${SAMPLES_DIR}:/opt/gopath/src/github.com/hyperledger/fabric-samples
       - ${COMMON}:/${COMMON}
+      - ../httpWrapper/routes:/opt/wrapper/routes
     environment:
       - PEER_HOME=$MYHOME
       - ORDERER_HOME=$MYHOME
+    ports:
+      - 3000:3000
     networks:
       - $NETWORK"
 }
