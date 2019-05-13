@@ -59,6 +59,9 @@ mkdir -p ${SDIR}/logs
 # Create the docker-compose file
 ${SDIR}/scripts/makeDocker.sh main
 ${SDIR}/scripts/makeDocker.sh createFabricRunner
+
+docker-compose -f ${SDIR}/docker/docker-compose-setup.yaml up -d
+docker image build -t hyperledger/explorer ../blockchain-explorer/
 docker-compose -f ${SDIR}/docker/docker-compose.yaml up -d
 
 ORGANIZATIONS="org1 org2 org3 org4"
@@ -70,7 +73,6 @@ for ORG in $ORGANIZATIONS; do
    docker-compose -f ${SDIR}/docker/docker-compose-$ORG.yaml up -d
 done
 
-docker-compose -f ${SDIR}/docker/docker-compose-setup.yaml up -d
 docker ps -a
 exit
 

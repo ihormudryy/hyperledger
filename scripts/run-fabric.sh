@@ -10,6 +10,14 @@ source $SRC/env.sh $ORDERER_ORGS "$PEER_ORGS" $NUM_PEERS
 source $SRC/make-config-tx.sh
 LOG_FILE_NAME=${LOGDIR}/chaincode-${CHAINCODE_NAME}-install.log
 
+function getChannel {
+  initPeerVars "$PEER_ORGS" 1
+  export CORE_PEER_MSPCONFIGPATH=/${COMMON}/orgs/${PEER_ORGS}/admin/msp
+
+  # peer channel list | grep "channel$RANDOM_NUMBER"
+  peer channel getinfo -c "channel$RANDOM_NUMBER"
+}
+
 function testChannel {
    IFS=', ' read -r -a OORGS <<< "$ORDERER_ORGS"
    IFS=', ' read -r -a PORGS <<< "$PEER_ORGS"

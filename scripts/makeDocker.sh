@@ -32,6 +32,9 @@ COMMON_DIR="./../common"
 SAMPLES_DIR="./../chaincodes/"
 
 function main {
+   export EXPLORER_DB_NAME="fabricexplorer"
+   export EXPLORER_DB_USER="postgres"
+   export EXPLORER_DB_PWD="password"
    {
    createDockerFiles
    writeHeader
@@ -40,9 +43,9 @@ function main {
       writeIntermediateFabricCA $ORGS
    fi
    writeStartFabric
-   #writeBlockchainExplorer
-   #writeHyperledgerComposer
+   writeBlockchainExplorer
    } > $DOCKER_DIR/docker-compose.yaml
+   writeBlockchainExplorerService
    log "Created docker-compose.yaml"
 }
 
@@ -89,6 +92,10 @@ function createPeerDockerfile {
 
 # Create various dockerfiles used by this sample
 function createDockerFiles {
+   CLI_WRAPPER_SETUP="RUN mkdir /opt/wrapper
+   COPY ./httpWrapper /opt/wrapper
+   WORKDIR /opt/wrapper
+   RUN npm i"
    if [ "$FABRIC_TAG" = "local" ]; then
       ORDERER_BUILD="image: hyperledger/fabric-ca-orderer"
       PEER_BUILD="image: hyperledger/fabric-ca-peer"
@@ -102,10 +109,10 @@ function createDockerFiles {
       PEER_BUILD="build:
       context: .
       dockerfile: fabric-ca-peer.dockerfile"
-      createDockerFile tools "8888"
+      createDockerFile tools "8888" "$CLI_WRAPPER_SETUP"
       TOOLS_BUILD="build:
-      context: .
-      dockerfile: fabric-ca-tools.dockerfile"
+      context: ../
+      dockerfile: ./docker/fabric-ca-tools.dockerfile"
    fi
 }
 
@@ -119,6 +126,9 @@ function createDockerFile {
       echo 'RUN chmod +x -R /usr/local/bin/*'
       echo 'ARG FABRIC_CA_DYNAMIC_LINK=true'
       echo "EXPOSE ${2}"
+      if [ ! -z "$3" ]; then
+        echo "$3"
+      fi
       echo 'RUN if [ "\$FABRIC_CA_DYNAMIC_LINK" = "true" ]; then apt-get install -y libltdl-dev; fi'
    } > $DOCKER_DIR/fabric-ca-${1}.dockerfile
 }
@@ -148,7 +158,7 @@ function writeBlockchainExplorerService {
             \"clients\": {" > ${DOCKER_DIR}/config.json
    
    FIRST=true
-   for ORG in $PEER_ORGS; do
+   for ORG in $ORGS; do
       if [ $FIRST != true ]; then
          #echo "," >> ${DOCKER_DIR}/config.json
          echo "\"${ORG}\": {
@@ -206,10 +216,10 @@ function writeBlockchainExplorerService {
          \"mspid\": \"${ORDERER_ORGS}MSP\",
          \"fullpath\": false,
          \"adminPrivateKey\": {
-            \"path\": \"/data/orgs/${ORDERER_ORGS}/admin/msp/keystore\"
+            \"path\": \"/${COMMON}/orgs/${ORDERER_ORGS}/admin/msp/keystore\"
          },
          \"signedCert\": {
-            \"path\": \"/data/orgs/${ORDERER_ORGS}/admin/msp/signcerts\"
+            \"path\": \"/${COMMON}/orgs/${ORDERER_ORGS}/admin/msp/signcerts\"
          }  
       }," >> ${DOCKER_DIR}/config.json
    FIRST=true
@@ -225,10 +235,10 @@ function writeBlockchainExplorerService {
             \"fullpath\": false,
             \"tlsEnable\": true," >> ${DOCKER_DIR}/config.json
       echo "\"adminPrivateKey\": {
-               \"path\": \"/data/orgs/${ORG}/admin/msp/keystore\"
+               \"path\": \"/${COMMON}/orgs/${ORG}/admin/msp/keystore\"
             },
             \"signedCert\": {
-               \"path\": \"/data/orgs/${ORG}/admin/msp/signcerts\"
+               \"path\": \"/${COMMON}/orgs/${ORG}/admin/msp/signcerts\"
             }
          }" >> ${DOCKER_DIR}/config.json
    done
@@ -252,7 +262,7 @@ function writeBlockchainExplorerService {
                      \"ssl-target-name-override\": \"${PEER_HOST}\"
                   },
                   \"tlsCACerts\": {
-                     \"path\": \"/data/${ORG}-ca-chain.pem\"
+                     \"path\": \"/${COMMON}/${ORG}-ca-chain.pem\"
                   }
          }" >> ${DOCKER_DIR}/config.json
         COUNT=$((COUNT+1))
@@ -270,14 +280,19 @@ function writeSetupFabric {
     $TOOLS_BUILD
     stdin_open: true
     tty: true
+    working_dir: /opt/wrapper
+    command: npm start
     volumes:
       - ${SCRIPTS_DIR}:/scripts
       - ${LOGS_DIR}:/logs
       - ${SAMPLES_DIR}:/opt/gopath/src/github.com/hyperledger/fabric-samples
       - ${COMMON}:/${COMMON}
+      - ../httpWrapper/routes:/opt/wrapper/routes
     environment:
       - PEER_HOME=$MYHOME
       - ORDERER_HOME=$MYHOME
+    ports:
+      - 3000:3000
     networks:
       - $NETWORK"
 }
@@ -316,31 +331,9 @@ function writeHyperledgerComposer {
 } 
 
 function writeBlockchainExplorer {
-   echo "  
-  blockchain-explorer:
-    container_name: blockchain-explorer
-    image: hyperledger/explorer
-    environment:
-      - DATABASE_HOST=192.168.10.11
-      - DATABASE_USERNAME=$EXPLORER_DB_USER
-      - DATABASE_PASSWORD=$EXPLORER_DB_PWD
-    volumes:
-      - ${DATA_DIR}:/$DATA
-      - ./../../blockchain-explorer:/opt/explorer
-      - ./config.json:/opt/explorer/app/platform/fabric/config.json
-      - ${DATA_DIR}:/tmp/crypto
-    ports:
-      - 8000:8080
-    networks:
-      - $NETWORK
-    depends_on:
-      - setup
-      - blockchain-explorer-db
-    
-  blockchain-explorer-db:
+   echo "  blockchain-explorer-db:
     container_name: blockchain-explorer-db
-    image: hyperledger/explorer-db
-    working_dir: /opt
+    image: hyperledger/explorer-db:latest
     environment:
       - POSTGRES_HOST=blockchain-explorer-db
       - POSTGRES_PORT=5432
@@ -352,16 +345,35 @@ function writeBlockchainExplorer {
       - DATABASE_DATABASE=$EXPLORER_DB_NAME
       - DATABASE_USERNAME=$EXPLORER_DB_USER
       - DATABASE_PASSWORD=$EXPLORER_DB_PWD
-    command: /bin/bash /opt/createdb.sh
     volumes:
-      - ${SCRIPTS_DIR}:/scripts
+      - ../scripts/createdb.sh:/docker-entrypoint-initdb.d/createdb.sh
     ports:
       - 5432:5432
     networks:
-      $NETWORK:
-         ipv4_address: 192.168.10.11
+      - $NETWORK
+
+  blockchain-explorer:
+    restart: on-failure:10
+    container_name: blockchain-explorer
+    image: hyperledger/explorer:latest
+    environment:
+      - DATABASE_HOST=blockchain-explorer-db
+      - DATABASE_USERNAME=$EXPLORER_DB_USER
+      - DATABASE_PASSWORD=$EXPLORER_DB_PWD
+      - GOPATH=/opt/explorer/tmp
+      - DISCOVERY_AS_LOCALHOST=false
+    volumes:
+      - ${COMMON}:/${COMMON}
+      - ./config.json:/opt/explorer/app/platform/fabric/config.json
+      - ${LOGS_DIR}:/opt/explorer/logs
+    ports:
+      - 8080:8080
+    networks:
+      - $NETWORK
     depends_on:
-      - setup"
+      - blockchain-explorer-db
+
+"
 }
 
 function writeRootCA {
