@@ -26,7 +26,7 @@ export FABRIC_CFG_PATH=/private
 configtxgen -printOrg $NEW_ORG > org3.json
 
 export FABRIC_CFG_PATH=/etc/hyperledger/fabric
-export CORE_PEER_MSPCONFIGPATH==$ORG_ADMIN_HOME/msp
+export CORE_PEER_MSPCONFIGPATH=$ORG_ADMIN_HOME/msp
 initOrdererVars $ORDERER_ORGS 1
 echo "download config $CHANNEL_NAME"
 peer channel fetch config config_block.pb -c $CHANNEL_NAME $ORDERER_CONN_ARGS
@@ -42,7 +42,7 @@ configtxlator proto_encode --input org3_update_in_envelope.json --type common.En
 
 # sign by governor
 initPeerVars $GOVERNOR 1
-export CORE_PEER_MSPCONFIGPATH==$ORG_ADMIN_HOME/msp
+export CORE_PEER_MSPCONFIGPATH=$ORG_ADMIN_HOME/msp
 peer channel signconfigtx -f org3_update_in_envelope.pb
 
 peer channel update -f  org3_update_in_envelope.pb -c $CHANNEL_NAME $ORDERER_CONN_ARGS
@@ -50,5 +50,5 @@ peer channel update -f  org3_update_in_envelope.pb -c $CHANNEL_NAME $ORDERER_CON
 sleep 3
 echo $NEW_ORG
 initPeerVars $NEW_ORG 1
-export CORE_PEER_MSPCONFIGPATH==$ORG_ADMIN_HOME/msp
+export CORE_PEER_MSPCONFIGPATH=$ORG_ADMIN_HOME/msp
 peer channel fetch config  config_block.pb -c $CHANNEL_NAME $ORDERER_CONN_ARGS
