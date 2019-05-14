@@ -5,11 +5,9 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
-SRC=$(dirname "$0")
-source $SRC/env.sh $ORDERER_ORGS $ORGANIZATION $NUM_PEERS
-
-log "looking for /$COMMON/tls/$ORDERER_HOST-client.crt"
 if [ -f /${COMMON}/tls/$ORDERER_HOST-cli-client.crt ]; then
+  SRC=$(dirname "$0")
+  source $SRC/env.sh $ORDERER_ORGS $ORGANIZATION $NUM_PEERS
   log "crypto artifacts exist, starting orderer"
   export PEER_HOME=/${COMMON}
   export ORDERER_HOME=/${COMMON}

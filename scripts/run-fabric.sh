@@ -206,7 +206,7 @@ function createChannel {
    makeConfigTxYaml /${COMMON}
    generateChannelTx ${1}
    export CORE_PEER_MSPCONFIGPATH=$ORG_ADMIN_HOME/msp
-   logr "Creating channel '$CHANNEL_NAME' on $ORDERER_HOST ..."
+   logr "Creating channel '$CHANNEL_NAME' on $ORDERER_HOST ... $BLOCK_FILE"
    peer channel create \
       -c $CHANNEL_NAME \
       -f $CHANNEL_TX_FILE $ORDERER_CONN_ARGS \

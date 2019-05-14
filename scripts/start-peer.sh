@@ -7,11 +7,10 @@
 
 # Start the peer
 
-SRC=$(dirname "$0")
-source $SRC/env.sh $ORDERER_ORGS $ORGANIZATION $NUM_PEERS
 
-log "looking for $CORE_PEER_TLS_CERT_FILE"
 if [ -f /${COMMON}/tls/$PEER_NAME-client.crt ]; then
+  SRC=$(dirname "$0")
+  source $SRC/env.sh $ORDERER_ORGS $ORGANIZATION $NUM_PEERS
   log "crypto artifacts exist, starting peer"
   export PEER_HOME=/${COMMON}
   export ORDERER_HOME=/${COMMON}
