@@ -3,12 +3,15 @@
 function main {
     cd /scripts
     export ORDERER_ORGS="blockchain-technology"
-    export CENTRAL="org1"
-    export PEER_ORGS="$CENTRAL"
+    export CENTRAL="governor"
+    export PEER_ORGS="$CENTRAL org1"
     export NUM_PEERS=2
     export RANDOM_NUMBER=${RANDOM}
     mkdir -p /private/crypto${RANDOM_NUMBER}
     echo $RANDOM_NUMBER > random.txt
+
+    IFS=', ' read -r -a OORGS <<< "$ORDERER_ORGS"
+    IFS=', ' read -r -a PORGS <<< "$PEER_ORGS"
 
     echo
     echo "Test 1 - add org1 to system channel"
@@ -19,21 +22,31 @@ function main {
     echo
     echo "Test 2 - create new channel between org1"
     echo
-    export PEER_ORGS="org1"
+    #export PEER_ORGS="org1 governor"
     ./env.sh $ORDERER_ORGS "$PEER_ORGS" $NUM_PEER
     ./run-fabric.sh testChannel
 
     echo
     echo "Test3 - add org2 to newly created channel"
     echo
-    export PEER_ORGS="org1 org2"
+    #export PEER_ORGS="org1 governor"
     ./env.sh $ORDERER_ORGS "$PEER_ORGS" $NUM_PEERS
     ./run-fabric.sh updateChannelConfig $CENTRAL 1 org2
 
     echo
-    echo "Test 4 - install annd instantiate ABAC chaincode in org1 and org2 peers"
+    echo "Test 4 - install annd instantiate ABAC chaincode"
     echo
     ./run-fabric.sh testABACChaincode
+
+    echo
+    echo "Test 5 - install annd instantiate testMarblesChaincode chaincode"
+    echo
+    ./run-fabric.sh testMarblesChaincode
+
+    echo
+    echo "Test 5 - install annd instantiate testHighThroughputChaincode chaincode"
+    echo
+    ./run-fabric.sh testHighThroughputChaincode
 }
 
 function createUser {
@@ -53,10 +66,10 @@ function createUser {
 function testABACChaincode {
     cd /scripts
     export ORDERER_ORGS="blockchain-technology"
-    export CENTRAL="org1"
-    export PEER_ORGS="governor $CENTRAL"
+    export CENTRAL="governor"
+    export PEER_ORGS="governor"
     export NUM_PEERS=2
-    export RANDOM_NUMBER=$(cat /scripts/random.txt)
+    export RANDOM_NUMBER=16789
     source env.sh $ORDERER_ORGS "$PEER_ORGS" $NUM_PEER
     ./env.sh $ORDERER_ORGS "$PEER_ORGS" $NUM_PEER
     ./run-fabric.sh testABACChaincode
@@ -66,10 +79,10 @@ function testMarblesChaincode {
     cd /scripts
     export ORDERER_ORGS="blockchain-technology"
     export CENTRAL="org1"
-    export PEER_ORGS="governor $CENTRAL"
+    export PEER_ORGS="governor"
     export NUM_PEERS=2
-    export RANDOM_NUMBER=$(cat /scripts/random.txt)
-    source env.sh $ORDERER_ORGS "$PEER_ORGS" $NUM_PEER
+    export RANDOM_NUMBER=16789
+    #source env.sh $ORDERER_ORGS "$PEER_ORGS" $NUM_PEER
     ./env.sh $ORDERER_ORGS "$PEER_ORGS" $NUM_PEER
     ./run-fabric.sh testMarblesChaincode
 }
@@ -77,11 +90,12 @@ function testMarblesChaincode {
 function testHighThroughputChaincode {
     cd /scripts
     export ORDERER_ORGS="blockchain-technology"
-    export CENTRAL="org1"
-    export PEER_ORGS="governor $CENTRAL"
+    export PEER_ORGS="governor org1"
     export NUM_PEERS=2
-    export RANDOM_NUMBER=$(cat /scripts/random.txt)
-    source env.sh $ORDERER_ORGS "$PEER_ORGS" $NUM_PEER
+    export RANDOM_NUMBER=${RANDOM}
+    IFS=', ' read -r -a OORGS <<< "$ORDERER_ORGS"
+    IFS=', ' read -r -a PORGS <<< "$PEER_ORGS"
+    #source env.sh $ORDERER_ORGS "$PEER_ORGS" $NUM_PEER
     ./env.sh $ORDERER_ORGS "$PEER_ORGS" $NUM_PEER
     ./run-fabric.sh testHighThroughputChaincode
 }

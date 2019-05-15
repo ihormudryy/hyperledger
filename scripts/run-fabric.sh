@@ -57,7 +57,7 @@ function testABACChaincode {
    set -e
    IFS=', ' read -r -a OORGS <<< "$ORDERER_ORGS"
    IFS=', ' read -r -a PORGS <<< "$PEER_ORGS"
-   export CHAINCODE_NAME="abac"
+   export CHAINCODE_NAME="abac1"
    export CHAINCODE_PATH="abac/go"
    export CHAINCODE_TYPE="golang"
    export CHAINCODE_VERSION="3.3"
@@ -84,7 +84,7 @@ function testABACChaincode {
          COUNT=$((COUNT+1))
       done
    done
-   upgradeChaincode ${PORGS[0]} 1 '{"Args":["init","a","100","b","200"]}'
+   upgradeChaincode ${PORGS[0]} 1 '{"Args":["init","a","100","b",""]}'
 
    chaincodeQuery ${PORGS[0]} 1 '{"Args":["query","a"]}' 100
    invokeChaincode ${PORGS[0]} 1 '{"Args":["invoke","a","b","10"]}'
@@ -96,13 +96,12 @@ function testABACChaincode {
 function testHighThroughputChaincode {
    IFS=', ' read -r -a OORGS <<< "$ORDERER_ORGS"
    IFS=', ' read -r -a PORGS <<< "$PEER_ORGS"
-   updateChannel ${PORGS[0]} 1
-   export CHAINCODE_NAME="high_throughput"
+   export CHAINCODE_NAME="high_throughput1"
    export CHAINCODE_PATH="high_throughput"
    export CHAINCODE_TYPE="golang"
    export CHAINCODE_VERSION="1.3"
    export LOG_FILE_NAME=${LOGDIR}/chaincode-${CHAINCODE_NAME}-install.log
-   sleep 2
+
    for ORG in $PEER_ORGS; do
       local COUNT=1
       while [[ "$COUNT" -le $NUM_PEERS ]]; do
@@ -110,8 +109,8 @@ function testHighThroughputChaincode {
          COUNT=$((COUNT+1))
       done
    done
-   MAX_ORGS=3
-   MAX_PEERS=2
+   MAX_ORGS=1
+   MAX_PEERS=1
    ORG_NUM=$(($RANDOM%$MAX_ORGS))
    PEER_NUM=$(($(($RANDOM%$MAX_PEERS))+1))
    instantiateChaincode ${PORGS[$ORG_NUM]} $PEER_NUM '{"Args":[]}'
@@ -121,7 +120,7 @@ function testHighThroughputChaincode {
    export COUNTER=0
    export VARIABLE="myvar${RANDOM}"
    START=$(date +%s)
-   for (( i = 0; i < 100; ++i ))
+   for (( i = 0; i < 1000; ++i ))
    do
       VALUE=${RANDOM}
       SIGN="+"
