@@ -37,6 +37,7 @@ if [ "$dockerContainers" != "" ]; then
    docker rm -f $(docker ps -a --format "{{.Names}}")
    docker network prune
    docker volume prune
+   docker system prune
    docker network create --subnet=$subnet $NETWORK
 fi
 

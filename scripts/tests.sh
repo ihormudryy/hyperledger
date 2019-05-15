@@ -50,8 +50,40 @@ function createUser {
     ennrollNewUser $ORG_USER_HOME "mudryy" "mudryypw"
 }
 
-$1
+function testABACChaincode {
+    cd /scripts
+    export ORDERER_ORGS="blockchain-technology"
+    export CENTRAL="org1"
+    export PEER_ORGS="governor $CENTRAL"
+    export NUM_PEERS=2
+    export RANDOM_NUMBER=$(cat /scripts/random.txt)
+    source env.sh $ORDERER_ORGS "$PEER_ORGS" $NUM_PEER
+    ./env.sh $ORDERER_ORGS "$PEER_ORGS" $NUM_PEER
+    ./run-fabric.sh testABACChaincode
+}
 
-#./run-fabric.sh testABACChaincode
-#./run-fabric.sh testMarblesChaincode
-#./run-fabric.sh testHighThroughputChaincode
+function testMarblesChaincode {
+    cd /scripts
+    export ORDERER_ORGS="blockchain-technology"
+    export CENTRAL="org1"
+    export PEER_ORGS="governor $CENTRAL"
+    export NUM_PEERS=2
+    export RANDOM_NUMBER=$(cat /scripts/random.txt)
+    source env.sh $ORDERER_ORGS "$PEER_ORGS" $NUM_PEER
+    ./env.sh $ORDERER_ORGS "$PEER_ORGS" $NUM_PEER
+    ./run-fabric.sh testMarblesChaincode
+}
+
+function testHighThroughputChaincode {
+    cd /scripts
+    export ORDERER_ORGS="blockchain-technology"
+    export CENTRAL="org1"
+    export PEER_ORGS="governor $CENTRAL"
+    export NUM_PEERS=2
+    export RANDOM_NUMBER=$(cat /scripts/random.txt)
+    source env.sh $ORDERER_ORGS "$PEER_ORGS" $NUM_PEER
+    ./env.sh $ORDERER_ORGS "$PEER_ORGS" $NUM_PEER
+    ./run-fabric.sh testHighThroughputChaincode
+}
+
+$1

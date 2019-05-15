@@ -367,7 +367,6 @@ function writeBlockchainExplorer {
       - $NETWORK
     depends_on:
       - blockchain-explorer-db
-
 "
 }
 
@@ -468,7 +467,7 @@ function writeOrderer {
    if [ $COUNT -eq 1 ]; then
       echo "      - ENABLER_FLAG=true"
    fi
-   echo "    command: /bin/bash -c '/scripts/start-orderer.sh 2>&1 | tee /$ORDERER_LOGFILE'
+   echo "    entrypoint: /bin/bash -c '/scripts/start-orderer.sh 2>&1 | tee $ORDERER_LOGFILE'
     volumes:
       - ${SCRIPTS_DIR}:/scripts
       - ${LOGS_DIR}:/logs
@@ -539,7 +538,7 @@ function writePeer {
       - $PREV_PEER"
    fi
    echo "    working_dir: $MYHOME
-    command: /bin/bash -c '/scripts/start-peer.sh 2>&1 | tee /$PEER_LOGFILE'
+    entrypoint: /bin/bash -c '/scripts/start-peer.sh 2>&1 | tee $PEER_LOGFILE'
     volumes:
       - ${SCRIPTS_DIR}:/scripts
       - ${LOGS_DIR}:/logs
@@ -584,7 +583,7 @@ echo "
 
 function writeHeader {
 echo "#File was generated automatically on $(date) by makeDocker.sh. Do not edit.
-version: '3.4'
+version: '3.7'
    
 networks:
   $NETWORK:

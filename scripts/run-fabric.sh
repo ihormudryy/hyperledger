@@ -155,9 +155,9 @@ function addAffiliation {
    switchToAdminIdentity
    export CORE_PEER_MSPCONFIGPATH=$ORG_ADMIN_HOME/msp
    set -x
-   fabric-ca-client enroll -u https://$CA_ADMIN_USER_PASS@$CA_HOST:7054 -M /${COMMON}/orgs/${1}/admin/msp
+   fabric-ca-client enroll -u https://$CA_ADMIN_USER_PASS@$CA_HOST:7054 -M $ORG_ADMIN_HOME/msp
    fabric-ca-client affiliation add $1 -d \
-      -M /${COMMON}/orgs/${1}/admin/msp \
+      -M $ORG_ADMIN_HOME/msp \
       -u https://$CA_ADMIN_USER_PASS@$CA_HOST:7054 \
       --tls.client.certfile $CORE_ORDERER_TLS_CLIENTCERT_FILE \
       --tls.client.keyfile $CORE_ORDERER_TLS_CLIENTKEY_FILE \
