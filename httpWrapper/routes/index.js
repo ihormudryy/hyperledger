@@ -34,28 +34,32 @@ const exec = (command) => {
   });
 };
 
-router.get('/ping', apiResp(async (req) => {
-  return "pong";
+router.get('/ping', apiResp(async () => {
+  return 'pong';
 }));
 
 router.post('/channel', apiResp(async (req) => {
   const { randomNumber, orderer, peerOrgs, autojoin } = req.body;
 
-  return exec(`/scripts/create-channel-config.sh ${orderer} ${peerOrgs} ${randomNumber} ${autojoin}`);
+  return exec(`/scripts/api.sh createChannel ${orderer} ${peerOrgs} ${randomNumber} ${autojoin}`);
 }));
 
 router.post('/add-org', apiResp(async (req) => {
-  const { orderer, newOrg, peerOrgs, number } = req.body;
+  const { orderer, newOrg, peerOrgs, randomNumber, peers } = req.body;
 
-  const resp = await exec(`/scripts/add-org-to-channel.sh ${orderer} ${newOrg} "${peerOrgs}" ${number}`);
-  console.log(resp, number);
-  return resp;
+  return exec(`/scripts/api.sh addOrgToChannel ${orderer} "${peerOrgs}" ${newOrg} ${randomNumber} ${peers}`);
+}));
+
+router.post('/add-org-to-consortium', apiResp(async (req) => {
+  const { orderer, org, peers } = req.body;
+
+  return exec(`/scripts/api.sh addOrgToConsortium ${orderer} ${org} ${peers}`);
 }));
 
 router.get('/channel', apiResp(async (req) => {
   const { orderer, peerOrgs, randomNumber } = req.query;
 
-  return exec(`/scripts/get-channel.sh ${orderer} "${peerOrgs}" ${randomNumber}`);
+  return exec(`/scripts/api.sh getChannel ${orderer} "${peerOrgs}" ${randomNumber}`);
 }));
 
 module.exports = router;
