@@ -40,13 +40,11 @@ router.get('/ping', apiResp(async (req) => {
 
 router.post('/channel', apiResp(async (req) => {
   const { randomNumber, orderer, peerOrgs, autojoin } = req.body;
-
   return exec(`/scripts/create-channel-config.sh ${orderer} ${peerOrgs} ${randomNumber} ${autojoin}`);
 }));
 
 router.post('/add-org', apiResp(async (req) => {
   const { orderer, newOrg, peerOrgs, number } = req.body;
-
   const resp = await exec(`/scripts/add-org-to-channel.sh ${orderer} ${newOrg} "${peerOrgs}" ${number}`);
   console.log(resp, number);
   return resp;

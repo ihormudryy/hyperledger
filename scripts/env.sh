@@ -265,13 +265,12 @@ function ennrollNewUser {
    export FABRIC_CA_CLIENT_TLS_CERTFILES=$CA_CHAINFILE
    dowait "$CA_NAME to start" 60 $CA_LOGFILE $CA_CHAINFILE
    log "Enrolling user/admin for organization $CA_HOST with home directory $FABRIC_CA_CLIENT_HOME ..."
-   set -x
-
+   set -xe
    fabric-ca-client enroll \
       -H $FABRIC_CA_CLIENT_HOME \
       -d \
       -u https://$2:$3@$CA_HOST:7054
-
+   set +xe
    #fabric-ca-client register -d --id.name $2 --id.secret $3
 
    if [ $ADMINCERTS ]; then
@@ -285,7 +284,7 @@ function ennrollNewUser {
       cp $FABRIC_CA_CLIENT_HOME/msp/signcerts/* $CORE_PEER_MSPCONFIGPATH/admincerts
       cp $ORG_ADMIN_HOME/msp/signcerts/* $ACDIR
    fi
-   set +x
+ 
 }
 
 # Switch to the current org's admin identity. Enroll if not previously enrolled.
@@ -332,9 +331,12 @@ function copyAdminCert {
       fatal "Usage: copyAdminCert <targetMSPDIR>"
    fi
    if $ADMINCERTS; then
+      set -x
+      ls -la $CORE_PEER_MSPCONFIGPATH
       dowait "$ORGANIZATION administator to enroll" 60 $SETUP_LOGFILE $ORG_ADMIN_CERT
       mkdir -p $1/admincerts
       cp $ORG_ADMIN_CERT $1/admincerts
+      set +x
    fi
 }
 
@@ -344,6 +346,7 @@ function finishMSPSetup {
    if [ $# -ne 1 ]; then
       fatal "Usage: finishMSPSetup <targetMSPDIR>"
    fi
+
    if [ ! -d $1/tlscacerts ]; then
       mkdir -p $1/tlscacerts
       cp $1/cacerts/* $1/tlscacerts
