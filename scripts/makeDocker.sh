@@ -43,9 +43,7 @@ function main {
       writeIntermediateFabricCA $ORGS
    fi
    writeStartFabric
-   writeBlockchainExplorer
    } > $DOCKER_DIR/docker-compose.yaml
-   writeBlockchainExplorerService
    log "Created docker-compose.yaml"
 }
 
@@ -54,7 +52,9 @@ function createFabricRunner {
    createDockerFiles
    writeHeader
    writeSetupFabric
+   writeBlockchainExplorer
    } > $DOCKER_DIR/docker-compose-setup.yaml
+   writeBlockchainExplorerService
    log "Created docker-compose-setup.yaml"
 }
 
@@ -296,7 +296,8 @@ function writeSetupFabric {
     ports:
       - 3000:3000
     networks:
-      - $NETWORK"
+      - $NETWORK
+"
 }
 
 # Write services for fabric orderer and peer containers
@@ -333,7 +334,7 @@ function writeHyperledgerComposer {
 function writeBlockchainExplorer {
    echo "  blockchain-explorer-db:
     container_name: blockchain-explorer-db
-    image: hyperledger/explorer-db:latest
+    image: ihorm/blockchain-explorer-db:latest
     environment:
       - DATABASE_HOST=blockchain-explorer-db
       - DATABASE_PORT=5432
@@ -350,7 +351,7 @@ function writeBlockchainExplorer {
   blockchain-explorer:
     restart: on-failure:10
     container_name: blockchain-explorer
-    image: hyperledger/explorer:latest
+    image: ihorm/blockchain-explorer:latest
     environment:
       - DATABASE_HOST=blockchain-explorer-db
       - DATABASE_USERNAME=$EXPLORER_DB_USER

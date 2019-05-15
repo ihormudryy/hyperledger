@@ -27,7 +27,8 @@ echo $RANDOM_NUMBER > ${SDIR}/scripts/random.txt
 export TYPE="kafka"
 export ORDERER="blockchain-technology"
 export ORGS="governor"
-source ${SDIR}/scripts/env.sh $ORDERER "$ORGS" 2 $TYPE
+export PEER_NUM=2
+source ${SDIR}/scripts/env.sh $ORDERER "$ORGS" $PEER_NUM $TYPE
 
 # Delete docker containers
 dockerContainers=$(docker ps -a | awk '$2~/hyperledger/ {print $1}')
@@ -61,19 +62,18 @@ mkdir -p ${SDIR}/logs
 ${SDIR}/scripts/makeDocker.sh main
 ${SDIR}/scripts/makeDocker.sh createFabricRunner
 
-docker-compose -f ${SDIR}/docker/docker-compose-setup.yaml up -d
 docker image build -t hyperledger/explorer ../blockchain-explorer/
 docker-compose -f ${SDIR}/docker/docker-compose.yaml up -d
 
 ORGANIZATIONS="org1 org2 org3 org4 org5"
 IFS=', ' read -r -a OORGS <<< "$ORGANIZATIONS"
-MAX_PEERS=2
 for ORG in $ORGANIZATIONS; do
-   source ${SDIR}/scripts/env.sh $ORDERER $ORG $MAX_PEERS $TYPE
+   source ${SDIR}/scripts/env.sh $ORDERER $ORG $PEER_NUM $TYPE
    ${SDIR}/scripts/makeDocker.sh createSingleOrganization
    docker-compose -f ${SDIR}/docker/docker-compose-$ORG.yaml up -d
 done
 
+docker-compose -f ${SDIR}/docker/docker-compose-setup.yaml up -d
 docker ps -a
 exit
 

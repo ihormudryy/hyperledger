@@ -331,12 +331,9 @@ function copyAdminCert {
       fatal "Usage: copyAdminCert <targetMSPDIR>"
    fi
    if $ADMINCERTS; then
-      set -x
-      ls -la $CORE_PEER_MSPCONFIGPATH
       dowait "$ORGANIZATION administator to enroll" 60 $SETUP_LOGFILE $ORG_ADMIN_CERT
       mkdir -p $1/admincerts
       cp $ORG_ADMIN_CERT $1/admincerts
-      set +x
    fi
 }
 
