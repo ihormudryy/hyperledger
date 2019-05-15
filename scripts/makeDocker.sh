@@ -208,7 +208,8 @@ function writeBlockchainExplorerService {
       }},
    \"orderers\": {
       \"${ORDERER_HOST}\": {
-         \"url\": \"grpcs://${ORDERER_HOST}:7050\"
+         \"url\": \"grpcs://${ORDERER_HOST}:7050\",
+         \"organization\": \"${ORDERER_ORGS}\"
       }
    },
    \"organizations\": {
