@@ -193,6 +193,8 @@ function updateChannelConfig {
       joinChannel $3 $COUNT
       COUNT=$((COUNT+1))
    done
+   # apply anchor update
+   updateChannel $1 $2
 }
 
 # Enroll as a peer admin and create the channel
