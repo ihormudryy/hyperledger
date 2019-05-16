@@ -77,7 +77,7 @@ function createUser {
     ./env.sh $ORDERER_ORGS "$PEER_ORGS" $NUM_PEER
     initOrdererVars ${OORGS[0]} 1
     initPeerVars ${PORGS[0]} 1
-    ennrollNewUser $ORG_USER_HOME "mudryy" "mudryypw"
+    ennrollNewUser $ORG_USER_HOME "regular" "regularpw"
 }
 
 function testABACChaincode {
