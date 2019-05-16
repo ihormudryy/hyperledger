@@ -22,14 +22,14 @@ function main {
     echo
     echo "Test 2 - create new channel between org1"
     echo
-    #export PEER_ORGS="org1 governor"
+    export PEER_ORGS="governor org1"
     ./env.sh $ORDERER_ORGS "$PEER_ORGS" $NUM_PEER
     ./run-fabric.sh testChannel
 
     echo
     echo "Test3 - add org2 to newly created channel"
     echo
-    #export PEER_ORGS="org1 governor"
+    export PEER_ORGS="governor org1"
     ./env.sh $ORDERER_ORGS "$PEER_ORGS" $NUM_PEERS
     ./run-fabric.sh updateChannelConfig $CENTRAL 1 org2
 
@@ -45,6 +45,23 @@ function main {
 
     echo
     echo "Test 5 - install annd instantiate testHighThroughputChaincode chaincode"
+    echo
+    ./run-fabric.sh testHighThroughputChaincode
+}
+
+function testOneOrgInNewChannel {
+    cd /scripts
+    export ORDERER_ORGS="blockchain-technology"
+    export CENTRAL="governor"
+    export PEER_ORGS="$CENTRAL"
+    export NUM_PEERS=2
+    export RANDOM_NUMBER=${RANDOM}
+    mkdir -p /private/crypto${RANDOM_NUMBER}
+    echo $RANDOM_NUMBER > random.txt
+    ./env.sh $ORDERER_ORGS "$PEER_ORGS" $NUM_PEER
+    ./run-fabric.sh testChannel
+    echo
+    echo "Test install annd instantiate testHighThroughputChaincode chaincode"
     echo
     ./run-fabric.sh testHighThroughputChaincode
 }

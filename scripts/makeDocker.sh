@@ -341,6 +341,7 @@ function writeBlockchainExplorer {
       - DATABASE_DATABASE=$EXPLORER_DB_NAME
       - DATABASE_USERNAME=$EXPLORER_DB_USER
       - DATABASE_PASSWORD=$EXPLORER_DB_PWD
+      - LOG_LEVEL=INFO
     volumes:
       - ../scripts/createdb.sh:/docker-entrypoint-initdb.d/createdb.sh
     ports:
