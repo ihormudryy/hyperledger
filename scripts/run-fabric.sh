@@ -37,7 +37,7 @@ function testMarblesChaincode {
    
    IFS=', ' read -r -a OORGS <<< "$ORDERER_ORGS"
    IFS=', ' read -r -a PORGS <<< "$PEER_ORGS"
-   export CHAINCODE_NAME="marbles"
+   export CHAINCODE_NAME="marbles${RANDOM}"
    export CHAINCODE_PATH="marbles/node"
    export CHAINCODE_TYPE="node"
    export CHAINCODE_VERSION="1.3"
@@ -57,7 +57,7 @@ function testABACChaincode {
    set -e
    IFS=', ' read -r -a OORGS <<< "$ORDERER_ORGS"
    IFS=', ' read -r -a PORGS <<< "$PEER_ORGS"
-   export CHAINCODE_NAME="abac1"
+   export CHAINCODE_NAME="abac${RANDOM}"
    export CHAINCODE_PATH="abac/go"
    export CHAINCODE_TYPE="golang"
    export CHAINCODE_VERSION="3.3"
@@ -96,7 +96,7 @@ function testABACChaincode {
 function testHighThroughputChaincode {
    IFS=', ' read -r -a OORGS <<< "$ORDERER_ORGS"
    IFS=', ' read -r -a PORGS <<< "$PEER_ORGS"
-   export CHAINCODE_NAME="high_throughput1"
+   export CHAINCODE_NAME="high_throughput${RANDOM}"
    export CHAINCODE_PATH="high_throughput"
    export CHAINCODE_TYPE="golang"
    export CHAINCODE_VERSION="1.3"
