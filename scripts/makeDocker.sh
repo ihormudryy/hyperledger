@@ -289,7 +289,7 @@ function writeSetupFabric {
       - ${LOGS_DIR}:/logs
       - ${SAMPLES_DIR}:/opt/gopath/src/github.com/hyperledger/fabric-samples
       - ${COMMON}:/${COMMON}
-      - ../httpWrapper/routes:/opt/wrapper/routes
+      - ../httpWrapper/api:/opt/wrapper/api
     environment:
       - PEER_HOME=$MYHOME
       - ORDERER_HOME=$MYHOME
@@ -335,6 +335,12 @@ function writeBlockchainExplorer {
    echo "  blockchain-explorer-db:
     container_name: blockchain-explorer-db
     image: ihorm/blockchain-explorer-db:latest
+    healthcheck:
+      test: [\"CMD-SHELL\", \"pg_isready -U $EXPLORER_DB_USER\"]
+      interval: 20s
+      timeout: 10s
+      retries: 5
+      start_period: 10s
     environment:
       - DATABASE_HOST=blockchain-explorer-db
       - DATABASE_PORT=5432
@@ -353,6 +359,9 @@ function writeBlockchainExplorer {
     restart: on-failure:10
     container_name: blockchain-explorer
     image: ihorm/blockchain-explorer:latest
+    depends_on:
+      blockchain-explorer-db:
+        condition: service_healthy
     environment:
       - DATABASE_HOST=blockchain-explorer-db
       - DATABASE_USERNAME=$EXPLORER_DB_USER

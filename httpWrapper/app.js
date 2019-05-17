@@ -1,20 +1,48 @@
 const express = require('express');
 const cookieParser = require('cookie-parser');
 const logger = require('morgan');
-
-const indexRouter = require('./routes/index');
+const SwaggerExpress = require('swagger-express-mw');
+const SwaggerUi = require('swagger-tools/middleware/swagger-ui');
 
 const app = express();
 
-app.use(logger('dev'));
-app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
-app.use(cookieParser());
+module.exports = new Promise(function (resolve, reject) {
 
-app.use('/', indexRouter);
+  const config = {
+    appRoot: __dirname,
+    swaggerFile: 'api/swagger/swagger.json'
+  };
 
-app.listen(3000, () => {
-  console.log('listening on: ', 3000)
+  SwaggerExpress.create(config, function (err, swaggerExpress) {
+    if (err) { throw err; }
+
+    // install middleware
+    app.use(logger('dev'));
+    app.use(express.json());
+    app.use(express.urlencoded({ extended: false }));
+    app.use(cookieParser());
+    app.use(SwaggerUi(swaggerExpress.runner.swagger));
+
+    swaggerExpress.register(app);
+
+    app.use(function(err, req, res, next) {
+      if (typeof err !== 'object') {
+        err = {
+          message: String(err) // Coerce to string
+        };
+      } else {
+        Object.defineProperty(err, 'message', { enumerable: true });
+      }
+
+      res.setHeader('Content-Type', 'application/json');
+      console.log(JSON.stringify(err));
+      res.end(JSON.stringify(err));
+    });
+
+    var port = process.env.PORT || 3000;
+    app.listen(port, () => {
+      console.log('listening on: ', port);
+      resolve(app);
+    });
+  });
 });
-
-module.exports = app;

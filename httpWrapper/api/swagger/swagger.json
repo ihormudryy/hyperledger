@@ -1,0 +1,213 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "version": "0.0.1",
+    "title": "Fabric CLI http wrapper"
+  },
+  "host": "localhost",
+  "basePath": "/",
+  "schemes": [
+    "http",
+    "https"
+  ],
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "definitions": {
+    "DefaultResponse": {
+      "type": "object",
+      "properties": {
+        "success": {
+          "type": "boolean"
+        },
+        "response": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "paths": {
+    "/ping": {
+      "x-swagger-router-controller": "index",
+      "get": {
+        "description": "Ping",
+        "operationId": "ping",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/DefaultResponse"
+            }
+          }
+        }
+      }
+    },
+    "/channel": {
+      "x-swagger-router-controller": "index",
+      "get": {
+        "description": "getChannel",
+        "operationId": "getChannel",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "orderer",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "peerOrgs",
+            "in": "query",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "randomNumber",
+            "in": "query",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/DefaultResponse"
+            }
+          }
+        }
+      },
+      "post": {
+        "description": "createChannel",
+        "operationId": "createChannel",
+        "parameters": [
+          {
+            "in": "body",
+            "name": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": [
+                "orderer",
+                "peerOrgs",
+                "randomNumber",
+                "autojoin"
+              ],
+              "properties": {
+                "orderer": {
+                  "type": "string"
+                },
+                "peerOrgs": {
+                  "type": "string"
+                },
+                "randomNumber": {
+                  "type": "string"
+                },
+                "autojoin": {
+                  "type": "boolean"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/DefaultResponse"
+            }
+          }
+        }
+      },
+      "put": {
+        "description": "updateChannel",
+        "operationId": "updateChannel",
+        "parameters": [
+          {
+            "in": "body",
+            "name": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": [
+                "orderer",
+                "peerOrgs",
+                "randomNumber",
+                "newOrg",
+                "peers"
+              ],
+              "properties": {
+                "orderer": {
+                  "type": "string"
+                },
+                "peerOrgs": {
+                  "type": "string"
+                },
+                "randomNumber": {
+                  "type": "string"
+                },
+                "newOrg": {
+                  "type": "string"
+                },
+                "peers": {
+                  "type": "number"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/DefaultResponse"
+            }
+          }
+        }
+      }
+    },
+    "/consortium": {
+      "x-swagger-router-controller": "index",
+      "put": {
+        "description": "updateChannel",
+        "operationId": "updateChannel",
+        "parameters": [
+          {
+            "in": "body",
+            "name": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": [
+                "orderer",
+                "org",
+                "peers"
+              ],
+              "properties": {
+                "orderer": {
+                  "type": "string"
+                },
+                "org": {
+                  "type": "string"
+                },
+                "peers": {
+                  "type": "number"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/DefaultResponse"
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -120,7 +120,7 @@ function testHighThroughputChaincode {
    export COUNTER=0
    export VARIABLE="myvar${RANDOM}"
    START=$(date +%s)
-   for (( i = 0; i < 1000; ++i ))
+   for (( i = 0; i < 100; ++i ))
    do
       VALUE=${RANDOM}
       SIGN="+"
