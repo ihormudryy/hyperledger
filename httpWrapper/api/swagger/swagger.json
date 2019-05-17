@@ -171,8 +171,8 @@
     "/consortium": {
       "x-swagger-router-controller": "index",
       "put": {
-        "description": "updateChannel",
-        "operationId": "updateChannel",
+        "description": "updateConsortium",
+        "operationId": "updateConsortium",
         "parameters": [
           {
             "in": "body",
