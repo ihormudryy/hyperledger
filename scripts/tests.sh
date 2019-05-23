@@ -71,13 +71,15 @@ function createUser {
     export ORDERER_ORGS="blockchain-technology"
     export PEER_ORGS="org1"
     export NUM_PEERS=2
-    IFS=', ' read -r -a OORGS <<< "$ORDERER_ORGS"
-    IFS=', ' read -r -a PORGS <<< "$PEER_ORGS"
     source env.sh $ORDERER_ORGS "$PEER_ORGS" $NUM_PEER
-    ./env.sh $ORDERER_ORGS "$PEER_ORGS" $NUM_PEER
-    initOrdererVars ${OORGS[0]} 1
-    initPeerVars ${PORGS[0]} 1
-    ennrollNewUser $ORG_USER_HOME "regular" "regularpw"
+    ORG="org1"
+    initPeerVars ${ORG} 1
+    export USER_NAME="regular_${RANDOM}"
+    export USER_PASS="regularpw_${RANDOM}"
+    ennrollNewUser /${COMMON}/orgs/${ORG}/${USER_NAME} ${USER_NAME} $USER_PASS
+    registerNewUser /${COMMON}/orgs/${ORG}/${USER_NAME} ${USER_NAME} $USER_PASS
+    cp /${COMMON}/orgs/${ORG}/${USER_NAME}/msp/keystore/* /${COMMON}/orgs/${ORG}/${USER_NAME}/msp/key.pem
+    cp /${COMMON}/orgs/${ORG}/${USER_NAME}/msp/signcerts/cert.pem /${COMMON}/orgs/${ORG}/${USER_NAME}/msp/cert.pem
 }
 
 function testABACChaincode {

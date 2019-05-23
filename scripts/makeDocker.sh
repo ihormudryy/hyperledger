@@ -350,8 +350,6 @@ function writeBlockchainExplorer {
       - LOG_LEVEL=INFO
     volumes:
       - ../scripts/createdb.sh:/docker-entrypoint-initdb.d/createdb.sh
-    ports:
-      - 5432:5432
     networks:
       - $NETWORK
 

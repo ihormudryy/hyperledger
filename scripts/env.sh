@@ -260,6 +260,19 @@ function initPeerVars {
    --certfile $CORE_PEER_TLS_CLIENTCERT_FILE"
 }
 
+function registerNewUser {
+   set -xe
+   echo "CORE_PEER_TLS_CLIENTCERT_FILE is $CORE_PEER_TLS_CLIENTCERT_FILE"
+   fabric-ca-client register \
+      -d --id.name $2 --id.secret $3 \
+      -H $1 \
+      -u https://$CA_ADMIN_USER_PASS@$CA_HOST:7054 \
+      --tls.certfiles $INT_CA_CHAINFILE \
+      --tls.client.certfile $CORE_PEER_TLS_CLIENTCERT_FILE \
+      --tls.client.keyfile $CORE_PEER_TLS_CLIENTKEY_FILE
+   set +xe
+}
+
 function ennrollNewUser {
    export FABRIC_CA_CLIENT_HOME=$1
    export FABRIC_CA_CLIENT_TLS_CERTFILES=$CA_CHAINFILE
@@ -269,9 +282,8 @@ function ennrollNewUser {
    fabric-ca-client enroll \
       -H $FABRIC_CA_CLIENT_HOME \
       -d \
-      -u https://$2:$3@$CA_HOST:7054
+      -u https://$CA_ADMIN_USER_PASS@$CA_HOST:7054
    set +xe
-   #fabric-ca-client register -d --id.name $2 --id.secret $3
 
    if [ $ADMINCERTS ]; then
       ACDIR=$CORE_PEER_MSPCONFIGPATH/admincerts
