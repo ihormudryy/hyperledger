@@ -7,8 +7,9 @@ const yaml = require('js-yaml');
 const { FileSystemWallet, Gateway, X509WalletMixin } = require('fabric-network');
 
 // Specify userName for network access
-const userName = 'user-org11@org1.com';
-const channel = 'channel26704';
+const user = 'regular_955';
+const userName = user + '@org1.com';
+const channel = 'channel1361';
 
 async function addToWallet() {
 
@@ -18,8 +19,8 @@ async function addToWallet() {
       const wallet = new FileSystemWallet('./identity/' + userName + '/wallet');
 
       // Identity to credentials to be stored in the wallet
-      const cert = fs.readFileSync('/private/orgs/org1/user/msp/signcerts/cert.pem').toString();
-      const key = fs.readFileSync('/private/orgs/org1/user/msp/keystore/bf3205e4e8d312e6bb109024a908635dc69a2e3bdd83534f6f73745a35558827_sk').toString();
+      const cert = fs.readFileSync('/private/orgs/org1/' + user + '/msp/cert.pem').toString();
+      const key = fs.readFileSync('/private/orgs/org1/' + user + '/msp/key.pem').toString();
 
       // Load credentials into wallet
       const identity = X509WalletMixin.createIdentity('org1MSP', cert, key);
@@ -52,7 +53,7 @@ async function main() {
     let connectionOptions = {
       identity: userName,
       discovery: { 
-        enabled: false, 
+        enabled: true, 
         asLocalhost: true 
       },
       wallet: wallet
@@ -60,6 +61,7 @@ async function main() {
 
     // Connect to gateway using application specified parameters
     console.log('Connect to Fabric gateway.');
+
     await gateway.connect(connectionProfile, connectionOptions);
 
     const network = await gateway.getNetwork(channel);

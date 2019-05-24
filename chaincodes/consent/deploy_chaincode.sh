@@ -2,7 +2,7 @@
 export ORDERER_ORGS="blockchain-technology"
 export PEER_ORGS="org1 org2"
 export NUM_PEERS=1
-export CHAINCODE_NAME="consent_management"
+export CHAINCODE_NAME="consent_managament"
 export CHAINCODE_PATH="consent/chaincode/node"
 export CHAINCODE_TYPE="node"
 export CHAINCODE_PREFIX="github.com/hyperledger/fabric-samples"

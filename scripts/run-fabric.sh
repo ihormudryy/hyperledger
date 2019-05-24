@@ -30,6 +30,7 @@ function testChannel {
       done
    done
    logr "Congratulations! The testChannel  has been successfully created."
+   updateChannel ${PORGS[0]} 1
 }
 
 function testMarblesChaincode {
@@ -47,10 +48,10 @@ function testMarblesChaincode {
       local COUNT=1
       while [[ "$COUNT" -le $NUM_PEERS ]]; do
          installChaincode $ORG $COUNT
-         instantiateChaincode $ORG $COUNT '{"Args":[]}'
          COUNT=$((COUNT+1))
       done
    done
+   instantiateChaincode ${PORGS[0]} 1 '{"Args":[]}'
 }
 
 function testABACChaincode {
@@ -174,10 +175,9 @@ function updateSytemChannelConfig {
    export PROFILE=$ORGS_PROFILE
    export CHANNEL_NAME="testchainid"
 
-   for ORG in $PEERS; do
-      echo $ORG
+   for ORGAN in $PEERS; do
       fetchSystemChannelConfig
-      createConfigUpdatePayload $ORG 1 'Consortiums'
+      createConfigUpdatePayload $ORGAN 1 'Consortiums'
       updateSystemConfigBlock ${OORGS[0]} 1
       #joinChannel $ORG 1
    done
@@ -194,7 +194,7 @@ function updateChannelConfig {
       COUNT=$((COUNT+1))
    done
    # apply anchor update
-   updateChannel $1 $2
+   #updateChannel $1 $2
 }
 
 # Enroll as a peer admin and create the channel
@@ -339,13 +339,15 @@ function updateChannel {
    initOrdererVars ${OORGS[0]} 1
    IFS=', ' read -r -a PORGS <<< "$PEER_ORGS"
    initPeerVars $1 $2
-   switchToAdminIdentity
+   #testChannelswitchToAdminIdentity
    logr "Updating anchor peers for $PEER_HOST ..."
    export CORE_PEER_MSPCONFIGPATH=$ORG_ADMIN_HOME/msp
+   set -ex
    peer channel update \
       -c $CHANNEL_NAME \
       -f $ANCHOR_TX_FILE \
       $ORDERER_CONN_ARGS
+   set +ex
 }
 
 function installChaincode {
@@ -527,7 +529,7 @@ function updateConfigBlock {
 }
 
 function createConfigUpdatePayload {
-   ORG=$1
+   ORGAN=$1
    PATH_PREFIX=/tmp
    GROUP=$3
    initPeerVars $1 $2
@@ -536,7 +538,7 @@ function createConfigUpdatePayload {
    generateChannelTx $1
    export CORE_PEER_MSPCONFIGPATH=$ORG_ADMIN_HOME/msp
 
-   configtxgen -printOrg $ORG > $PATH_PREFIX/$ORG.json
+   configtxgen -printOrg $ORGAN > $PATH_PREFIX/$ORGAN.json
 
    configtxlator proto_decode \
       --input $CONFIG_BLOCK_FILE \
@@ -544,11 +546,11 @@ function createConfigUpdatePayload {
 
    set -x
    if [ $GROUP = "Consortiums" ]; then
-      jq -s '.[0] * {"channel_group":{"groups":{"'$GROUP'":{"groups": {"SampleConsortium": {"groups": {'$ORG':.[1]}}}}}}}' \
-      $PATH_PREFIX/config.json $PATH_PREFIX/$ORG.json > $PATH_PREFIX/updated_config.json
+      jq -s '.[0] * {"channel_group":{"groups":{"'$GROUP'":{"groups": {"SampleConsortium": {"groups": {'$ORGAN':.[1]}}}}}}}' \
+      $PATH_PREFIX/config.json $PATH_PREFIX/$ORGAN.json > $PATH_PREFIX/updated_config.json
    elif [ $GROUP = "Application" ]; then
-      jq -s '.[0] * {"channel_group":{"groups":{"'$GROUP'":{"groups": {'$ORG':.[1]}}}}}' \
-      $PATH_PREFIX/config.json $PATH_PREFIX/$ORG.json > $PATH_PREFIX/updated_config.json
+      jq -s '.[0] * {"channel_group":{"groups":{"'$GROUP'":{"groups": {'$ORGAN':.[1]}}}}}' \
+      $PATH_PREFIX/config.json $PATH_PREFIX/$ORGAN.json > $PATH_PREFIX/updated_config.json
    fi
    set +x
 

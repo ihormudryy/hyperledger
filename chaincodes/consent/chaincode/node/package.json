@@ -1,5 +1,5 @@
 {
-	"name": "consent_management",
+	"name": "consent_managament",
 	"version": "1.0.0",
 	"description": "Consent Management chaincode implemented in node.js",
 	"engines": {
@@ -10,6 +10,7 @@
 	"engine-strict": true,
 	"license": "Apache-2.0",
 	"dependencies": {
-		"fabric-shim": "~1.4.0"
+		"fabric-shim": "~1.4.0",
+		"fabric-contract-api": "~1.4.0"
 	}
 }

@@ -347,7 +347,6 @@ function writeBlockchainExplorer {
       - DATABASE_DATABASE=$EXPLORER_DB_NAME
       - DATABASE_USERNAME=$EXPLORER_DB_USER
       - DATABASE_PASSWORD=$EXPLORER_DB_PWD
-      - LOG_LEVEL=INFO
     volumes:
       - ../scripts/createdb.sh:/docker-entrypoint-initdb.d/createdb.sh
     networks:
@@ -366,6 +365,7 @@ function writeBlockchainExplorer {
       - DATABASE_PASSWORD=$EXPLORER_DB_PWD
       - GOPATH=/opt/explorer/tmp
       - DISCOVERY_AS_LOCALHOST=false
+      - LOG_LEVEL=ERROR
     volumes:
       - ${COMMON}:/${COMMON}
       - ./config.json:/opt/explorer/app/platform/fabric/config.json

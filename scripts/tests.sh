@@ -14,24 +14,31 @@ function main {
     IFS=', ' read -r -a PORGS <<< "$PEER_ORGS"
 
     echo
-    echo "Test 1 - add org1 to system channel"
+    echo "Test 1 - add new org to system channel"
     echo
-    ./env.sh $ORDERER_ORGS "$PEER_ORGS" $NUM_PEER
+    ./env.sh "$ORDERER_ORGS" "$PEER_ORGS" $NUM_PEER
     ./run-fabric.sh updateSytemChannelConfig "org1"
 
     echo
-    echo "Test 2 - create new channel between org1"
+    echo "Test 2 - create new channel between org and governor"
     echo
-    export PEER_ORGS="governor org1"
     ./env.sh $ORDERER_ORGS "$PEER_ORGS" $NUM_PEER
     ./run-fabric.sh testChannel
 
     echo
-    echo "Test3 - add org2 to newly created channel"
+    echo "Test3 - add new org to newly created channel"
     echo
-    export PEER_ORGS="governor org1"
-    ./env.sh $ORDERER_ORGS "$PEER_ORGS" $NUM_PEERS
-    ./run-fabric.sh updateChannelConfig $CENTRAL 1 org2
+    export PEER_ORGS="governor org1 org2"
+    ./run-fabric.sh updateChannelConfig "governor" 1 "org2"
+
+    export PEER_ORGS="governor org1 org2 org3"
+    ./run-fabric.sh updateChannelConfig "governor" 1 "org3"
+
+    export PEER_ORGS="governor org1 org2 org3 org4"
+    ./run-fabric.sh updateChannelConfig "governor" 1 "org4"
+
+    export PEER_ORGS="governor org1 org2 org3 org4 org5"
+    ./run-fabric.sh updateChannelConfig "governor" 1 "org5"
 
     echo
     echo "Test 4 - install annd instantiate ABAC chaincode"
@@ -44,7 +51,7 @@ function main {
     ./run-fabric.sh testMarblesChaincode
 
     echo
-    echo "Test 5 - install annd instantiate testHighThroughputChaincode chaincode"
+    echo "Test 6 - install annd instantiate testHighThroughputChaincode chaincode"
     echo
     ./run-fabric.sh testHighThroughputChaincode
 }
@@ -82,41 +89,15 @@ function createUser {
     cp /${COMMON}/orgs/${ORG}/${USER_NAME}/msp/signcerts/cert.pem /${COMMON}/orgs/${ORG}/${USER_NAME}/msp/cert.pem
 }
 
-function testABACChaincode {
-    cd /scripts
+function testConsentChaincode {
+    export CHAINCODE_PREFIX="github.com/hyperledger/fabric-samples"
     export ORDERER_ORGS="blockchain-technology"
-    export CENTRAL="governor"
-    export PEER_ORGS="governor"
-    export NUM_PEERS=2
-    export RANDOM_NUMBER=16789
-    source env.sh $ORDERER_ORGS "$PEER_ORGS" $NUM_PEER
-    ./env.sh $ORDERER_ORGS "$PEER_ORGS" $NUM_PEER
-    ./run-fabric.sh testABACChaincode
-}
-
-function testMarblesChaincode {
-    cd /scripts
-    export ORDERER_ORGS="blockchain-technology"
-    export CENTRAL="org1"
-    export PEER_ORGS="governor"
-    export NUM_PEERS=2
-    export RANDOM_NUMBER=16789
-    #source env.sh $ORDERER_ORGS "$PEER_ORGS" $NUM_PEER
-    ./env.sh $ORDERER_ORGS "$PEER_ORGS" $NUM_PEER
-    ./run-fabric.sh testMarblesChaincode
-}
-
-function testHighThroughputChaincode {
-    cd /scripts
-    export ORDERER_ORGS="blockchain-technology"
-    export PEER_ORGS="governor org1"
-    export NUM_PEERS=2
-    export RANDOM_NUMBER=${RANDOM}
-    IFS=', ' read -r -a OORGS <<< "$ORDERER_ORGS"
-    IFS=', ' read -r -a PORGS <<< "$PEER_ORGS"
-    #source env.sh $ORDERER_ORGS "$PEER_ORGS" $NUM_PEER
-    ./env.sh $ORDERER_ORGS "$PEER_ORGS" $NUM_PEER
-    ./run-fabric.sh testHighThroughputChaincode
+    export PEER_ORGS="org1 org2"
+    cd $GOPATH/src/$CHAINCODE_PREFIX/consent
+    ./deploy_chaincode.sh deploy
+    cd $GOPATH/src/$CHAINCODE_PREFIX/consent/application
+    npm install
+    node index.js
 }
 
 $1

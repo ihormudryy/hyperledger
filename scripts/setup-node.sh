@@ -91,7 +91,7 @@ function registerPeerIdentities {
    sleep $((COUNT*COUNT))
    if [[ $(fabric-ca-client identity list --id $ADMIN_NAME 2>&1) == *"$ERROR_CODE"* ]]; then
       log "Registering admin identity with $ADMIN_NAME"
-      ATTRS="hf.Registrar.Roles=client,hf.Registrar.Attributes=*,hf.Revoker=true,hf.GenCRL=true,admin=true:ecert,abac.init=true:ecert"
+      ATTRS="hf.Registrar.Roles=client,hf.Registrar.Attributes=a.b.*,hf.Revoker=true,hf.GenCRL=true,admin=true:ecert,abac.init=true:ecert"
       fabric-ca-client register -d --id.name $ADMIN_NAME --id.secret $ADMIN_PASS --id.attrs $ATTRS
    fi
 

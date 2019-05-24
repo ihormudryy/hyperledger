@@ -21,7 +21,9 @@ description: "A gateway connection file for the consent management networks"
 version: "1.0"
 
 channels:
-  channel26704:
+  channel1361:
+    orderers:
+      orderer1.blockchain-technology.org
     peers:
       peer1.org1.com:
         endorsingPeer: true
@@ -34,15 +36,11 @@ channels:
 peers:
   peer1.org1.com:
     url: grpcs://peer1.org1.com:7051
-    grpcOptions:
-      ssl-target-name-override: peer1.org1.com
     tlsCACerts:
       path: /private/org1-ca-cert.pem
 
   peer1.org2.com:
     url: grpcs://peer1.org2.com:7051
-    grpcOptions:
-      ssl-target-name-override: peer1.org2.com
     tlsCACerts:
       path: /private/org2-ca-cert.pem
 
