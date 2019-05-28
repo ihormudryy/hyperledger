@@ -1,4 +1,4 @@
-name: "consent_management"
+name: "basic-network"
 
 #
 # Any properties with an "x-" prefix will be treated as application-specific, exactly like how naming
@@ -21,28 +21,39 @@ description: "A gateway connection file for the consent management networks"
 version: "1.0"
 
 channels:
-  channel1361:
+  channel17086:
     orderers:
       orderer1.blockchain-technology.org
     peers:
       peer1.org1.com:
         endorsingPeer: true
         eventSource: true
+        chaincodeQuery: true
+        ledgerQuery: true
 
-      peer1.org2.com:
-        endorsingPeer: true
-        eventSource: true
+organizations:
+  org1:
+    mspid: org1MSP
+
+    peers:
+      - peer1.org1.com
+
+    # [Optional]. Certificate Authorities issue certificates for identification purposes in a Fabric based
+    # network. Typically certificates provisioning is done in a separate process outside of the
+    # runtime network. Fabric-CA is a special certificate authority that provides a REST APIs for
+    # dynamic certificate management (enroll, revoke, re-enroll). The following section is only for
+    # Fabric-CA servers.
+    certificateAuthorities:
+      - ica.org1.com
 
 peers:
   peer1.org1.com:
     url: grpcs://peer1.org1.com:7051
     tlsCACerts:
       path: /private/org1-ca-cert.pem
+    grpcOptions:
+      ssl-target-name-override: peer1.org1.com
 
-  peer1.org2.com:
-    url: grpcs://peer1.org2.com:7051
-    tlsCACerts:
-      path: /private/org2-ca-cert.pem
 
 orderers:
   orderer1.blockchain-technology.org:
@@ -58,16 +69,16 @@ orderers:
 #
 certificateAuthorities:
   ca-org1:
-    url: http://ica.org1.com:7054
+    url: https://ica.org1.com:7054
     # the properties specified under this object are passed to the 'http' client verbatim when
     # making the request to the Fabric-CA server
     httpOptions:
-      verify: false
+      verify: true
 
     # Fabric-CA supports dynamic user enrollment via REST APIs. A "root" user, a.k.a registrar, is
     # needed to enroll and invoke new users.
     registrar:
-      - enrollId: ica-org1-admin
-        enrollSecret: ica-org1-adminpw
+      - enrollId: peer1.org1.com
+        enrollSecret: peer1.org1.compw
     # [Optional] The optional name of the CA.
     caName: ica.org1.com

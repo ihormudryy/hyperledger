@@ -7,16 +7,16 @@ const yaml = require('js-yaml');
 const { FileSystemWallet, Gateway, X509WalletMixin } = require('fabric-network');
 
 // Specify userName for network access
-const user = 'regular_955';
+const user = 'regular_5544@org1.com';
 const userName = user + '@org1.com';
-const channel = 'channel1361';
+const channel = 'channel17086';
 
 async function addToWallet() {
 
   // Main try/catch block
   try {
 
-      const wallet = new FileSystemWallet('./identity/' + userName + '/wallet');
+      const wallet = new FileSystemWallet('./identity/' + user + '/wallet');
 
       // Identity to credentials to be stored in the wallet
       const cert = fs.readFileSync('/private/orgs/org1/' + user + '/msp/cert.pem').toString();
@@ -25,7 +25,7 @@ async function addToWallet() {
       // Load credentials into wallet
       const identity = X509WalletMixin.createIdentity('org1MSP', cert, key);
 
-      await wallet.import(userName, identity);
+      await wallet.import(user, identity);
 
       return wallet;
 
@@ -51,7 +51,7 @@ async function main() {
 
     // Set connection options; identity and wallet
     let connectionOptions = {
-      identity: userName,
+      identity: user,
       discovery: { 
         enabled: true, 
         asLocalhost: true 
@@ -63,7 +63,7 @@ async function main() {
     console.log('Connect to Fabric gateway.');
 
     await gateway.connect(connectionProfile, connectionOptions);
-
+    //console.log(gateway);
     const network = await gateway.getNetwork(channel);
 
   } catch (error) {
@@ -84,7 +84,7 @@ main().then(() => {
 
   console.log('Issue program complete.');
 
-}).catch((e) => {
+}).catch((e) => {4
   
   console.log('Issue program exception.');
   console.log(e);

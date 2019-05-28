@@ -51,7 +51,7 @@ function testMarblesChaincode {
          COUNT=$((COUNT+1))
       done
    done
-   instantiateChaincode ${PORGS[0]} 1 '{"Args":[]}'
+   instantiateChaincode ${PORGS[0]} 1 '{"Args":[]}' 'OR'
 }
 
 function testABACChaincode {
@@ -72,7 +72,7 @@ function testABACChaincode {
       done
    done
    
-   instantiateChaincode ${PORGS[0]} 1 '{"Args":["init","a","100","b","200"]}'
+   instantiateChaincode ${PORGS[0]} 1 '{"Args":["init","a","100","b","200"]}' 'OR'
    chaincodeQuery ${PORGS[0]} 1 '{"Args":["query","a"]}' 100
    invokeChaincode ${PORGS[0]} 1 '{"Args":["invoke","a","b","10"]}'
    chaincodeQuery ${PORGS[0]} 1 '{"Args":["query","a"]}' 90
@@ -85,7 +85,7 @@ function testABACChaincode {
          COUNT=$((COUNT+1))
       done
    done
-   upgradeChaincode ${PORGS[0]} 1 '{"Args":["init","a","100","b",""]}'
+   upgradeChaincode ${PORGS[0]} 1 '{"Args":["init","a","100","b",""]}' 'OR'
 
    chaincodeQuery ${PORGS[0]} 1 '{"Args":["query","a"]}' 100
    invokeChaincode ${PORGS[0]} 1 '{"Args":["invoke","a","b","10"]}'
@@ -100,7 +100,7 @@ function testHighThroughputChaincode {
    export CHAINCODE_NAME="high_throughput${RANDOM}"
    export CHAINCODE_PATH="high_throughput"
    export CHAINCODE_TYPE="golang"
-   export CHAINCODE_VERSION="1.3"
+   export CHAINCODE_VERSION="1.0"
    export LOG_FILE_NAME=${LOGDIR}/chaincode-${CHAINCODE_NAME}-install.log
 
    for ORG in $PEER_ORGS; do
@@ -110,40 +110,41 @@ function testHighThroughputChaincode {
          COUNT=$((COUNT+1))
       done
    done
-   MAX_ORGS=1
-   MAX_PEERS=1
-   ORG_NUM=$(($RANDOM%$MAX_ORGS))
-   PEER_NUM=$(($(($RANDOM%$MAX_PEERS))+1))
-   instantiateChaincode ${PORGS[$ORG_NUM]} $PEER_NUM '{"Args":[]}'
    
-   sleep 5 #Done to awoit time related errors
+   ORG_NUM=0 #$(($RANDOM%$NUM_ORGS))
+   PEER_NUM=1 #$(($(($RANDOM%$NUM_PEERS))+1))
+   instantiateChaincode ${PORGS[0]} 1 '{"Args":[]}' 'OR'
+   
+   sleep 2
 
    export COUNTER=0
    export VARIABLE="myvar${RANDOM}"
    START=$(date +%s)
-   for (( i = 0; i < 100; ++i ))
+   for (( i = 0; i < $MAX_TX_COUNT; ++i ))
    do
       VALUE=${RANDOM}
       SIGN="+"
       COUNTER=$((COUNTER+$VALUE))
-      ORG_NUM=$(($RANDOM%$MAX_ORGS))
-      PEER_NUM=$(($(($RANDOM%$MAX_PEERS))+1))
+      #ORG_NUM=$(($RANDOM%$NUM_ORGS))
+      #PEER_NUM=$(($(($RANDOM%$NUM_PEERS))+1))
       invokeChaincode ${PORGS[$ORG_NUM]} $PEER_NUM '{"Args":["update","'$VARIABLE'","'$VALUE'","'$SIGN'"]}'
    done
-   echo "testHighThroughput UPDATE took $DIFF seconds"
-
    END=$(date +%s)
-   DIFF=$(( $END - $START ))
-   for (( i = 0; i < 100; ++i ))
+   DIFF_INVOKE=$(( $END - $START ))
+   logr "INVOKE took $DIFF_INVOKE seconds for $MAX_TX_COUNT tx"
+
+   START=$(date +%s)
+   for (( i = 0; i < $MAX_TX_COUNT; ++i ))
    do
-      ORG_NUM=$(($RANDOM%$MAX_ORGS))
-      PEER_NUM=$(($(($RANDOM%$MAX_PEERS))+1))
+      #ORG_NUM=$(($RANDOM%$NUM_ORGS))
+      #PEER_NUM=$(($(($RANDOM%$NUM_PEERS))+1))
       chaincodeQuery ${PORGS[$ORG_NUM]} $PEER_NUM '{"Args":["get","'$VARIABLE'"]}' $COUNTER
    done
-   START=$(date +%s)
    END=$(date +%s)
-   DIFF=$(( $END - $START ))
-   echo "testHighThroughput QUERY took $DIFF seconds"
+   DIFF_QUERY=$(( $END - $START ))
+   logr "QUERY took $DIFF_QUERY seconds for $MAX_TX_COUNT tx"
+
+   echo "$NUM_ORGS,$NUM_PEERS,$MAX_TX_COUNT,$DIFF_INVOKE,$DIFF_QUERY" >> ${LOGDIR}/performance/test_$CURRENT_DATE.csv
    logr "Congratulations! The testHighThroughput tests ran successfully."
 }
 
@@ -261,13 +262,16 @@ function chaincodeQuery {
    local starttime=$(date +%s)
    # Continue to poll until we get a successful response or reach QUERY_TIMEOUT
    while test "$(($(date +%s)-starttime))" -lt "$QUERY_TIMEOUT"; do
-      sleep 1
+      #sleep 1
       export CORE_PEER_MSPCONFIGPATH=$ORG_ADMIN_HOME/msp
+   
+      set -x
       peer chaincode query \
          -C $CHANNEL_NAME \
          -n ${CHAINCODE_NAME} \
          -c $ARGS >& ${LOG_FILE_NAME}
-
+      set +x
+   
       export VAL=$(cat ${LOG_FILE_NAME} | awk '/Query Result/ {print $NF}')
       if [ $? -eq 0 -a "$VALUE" = "$EXPECTED" ]; then
          logr "Query of channel '$CHANNEL_NAME' on peer '$PEER_HOST' was successful"
@@ -316,8 +320,9 @@ function queryAsRevokedUser {
    return 1
 }
 
-function makePolicy  {
-   POLICY="OR("
+function makePolicy {
+   LOGICAL_FUNCTION=$1
+   POLICY="$LOGICAL_FUNCTION("
    local COUNT=0
    for ORG in $PEER_ORGS; do
       if [ $COUNT -ne 0 ]; then
@@ -375,13 +380,13 @@ function installChaincode {
 }
 
 function upgradeChaincode {
-   if [ $# -ne 3 ]; then
-      fatalr "Usage: instantiateChaincode <ORG> <NUM> <Constructor message> "
+   if [ $# -ne 4 ]; then
+      fatalr "Usage: instantiateChaincode <ORG> <NUM> <Constructor message> <Logical policy function>"
    fi
    IFS=', ' read -r -a OORGS <<< "$ORDERER_ORGS"
    initOrdererVars ${OORGS[0]} 1
    IFS=', ' read -r -a PORGS <<< "$PEER_ORGS"
-   makePolicy
+   makePolicy $4
    initPeerVars $1 $2
    switchToAdminIdentity
    export CORE_PEER_MSPCONFIGPATH=$ORG_ADMIN_HOME/msp
@@ -397,13 +402,13 @@ function upgradeChaincode {
 }
 
 function instantiateChaincode {
-   if [ $# -ne 3 ]; then
-      fatalr "Usage: instantiateChaincode <ORG> <NUM> <Constructor message> "
+   if [ $# -ne 4 ]; then
+      fatalr "Usage: instantiateChaincode <ORG> <NUM> <Constructor message> <Logical policy function>"
    fi
    IFS=', ' read -r -a OORGS <<< "$ORDERER_ORGS"
    initOrdererVars ${OORGS[0]} 1
    IFS=', ' read -r -a PORGS <<< "$PEER_ORGS"
-   makePolicy
+   makePolicy $4
    initPeerVars $1 $2
    switchToAdminIdentity
    export CORE_PEER_MSPCONFIGPATH=$ORG_ADMIN_HOME/msp
@@ -605,4 +610,4 @@ function fatalr {
    exit 1
 }
 
-$1 $2 $3 $4 $5 $6
+$1 $2 $3 $4 $5 $6 $7

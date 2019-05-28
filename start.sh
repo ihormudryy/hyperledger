@@ -27,7 +27,7 @@ echo $RANDOM_NUMBER > ${SDIR}/scripts/random.txt
 export TYPE="kafka"
 export ORDERER="blockchain-technology"
 export ORGS="governor"
-export PEER_NUM=2
+export PEER_NUM=4
 source ${SDIR}/scripts/env.sh $ORDERER "$ORGS" $PEER_NUM $TYPE
 
 # Delete docker containers
@@ -36,9 +36,9 @@ if [ "$dockerContainers" != "" ]; then
    log "Deleting existing docker containers ..."
    docker stop $(docker ps -a --format "{{.Names}}")
    docker rm -f $(docker ps -a --format "{{.Names}}")
-   docker network prune
-   docker volume prune
-   docker system prune
+   docker network prune -f
+   docker volume prune -f
+   docker system prune -f
    docker network create --subnet=$subnet $NETWORK
 fi
 
