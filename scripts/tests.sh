@@ -69,20 +69,22 @@ function performanceTest {
     export CURRENT_DATE=`date +%d.%m.%Y_%H:%M:%S`
     echo "num_orgs,num_peers,tx_count,invoke,queue" > /logs/performance/test_$CURRENT_DATE.csv
     while [[ "$ORG_COUNT" -le $MAX_ORGS ]]; do
-        while [[ "$PEER_COUNT" -le $MAX_ORGS ]]; do
-            export NUM_ORGS=$((ORG_COUNT+1))
+        while [[ "$PEER_COUNT" -le $MAX_PEERS ]]; do
+            export NUM_ORGS=$ORG_COUNT
             export NUM_PEERS=$PEER_COUNT
-            export RANDOM_NUMBER="orgs${NUM_ORGS}peers${NUM_PEERS}"
+            export RANDOM_NUMBER="${NUM_ORGS}orgs${NUM_PEERS}peers"
             mkdir -p /private/crypto${RANDOM_NUMBER}
-            #echo $RANDOM_NUMBER > random.txt
             export PEER_ORGS="org${ORG_COUNT} $PEER_ORGS"
             ./run-fabric.sh updateSytemChannelConfig "org${ORG_COUNT}"
             ./run-fabric.sh testChannel
-            #./run-fabric.sh updateChannelConfig $CENTRAL 1 "org${ORG_COUNT}"
+            ##./run-fabric.sh updateChannelConfig $CENTRAL 1 "org${ORG_COUNT}"
             ./run-fabric.sh testHighThroughputChaincode
             rm -rf /logs/*.Broadcast
-            ORG_COUNT=$((ORG_COUNT+1))
+            echo "${NUM_ORGS} orgs ${NUM_PEERS} peers"
+            PEER_COUNT=$((PEER_COUNT+1))
         done
+        PEER_COUNT=1
+        ORG_COUNT=$((ORG_COUNT+1))
     done
 }
 
