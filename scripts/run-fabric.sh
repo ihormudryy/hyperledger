@@ -107,13 +107,14 @@ function testHighThroughputChaincode {
       local COUNT=1
       while [[ "$COUNT" -le $NUM_PEERS ]]; do
          installChaincode $ORG $COUNT
+         instantiateChaincode $ORG $COUNT '{"Args":[]}' 'OR'
          COUNT=$((COUNT+1))
       done
    done
    
-   ORG_NUM=0 #$(($RANDOM%$NUM_ORGS))
-   PEER_NUM=1 #$(($(($RANDOM%$NUM_PEERS))+1))
-   instantiateChaincode ${PORGS[0]} 1 '{"Args":[]}' 'OR'
+   #ORG_NUM=0 #$(($RANDOM%$NUM_ORGS))
+   #PEER_NUM=1 #$(($(($RANDOM%$NUM_PEERS))+1))
+   #instantiateChaincode ${PORGS[0]} 1 '{"Args":[]}' 'OR'
    
    sleep 2
 
@@ -125,8 +126,8 @@ function testHighThroughputChaincode {
       VALUE=${RANDOM}
       SIGN="+"
       COUNTER=$((COUNTER+$VALUE))
-      #ORG_NUM=$(($RANDOM%$NUM_ORGS))
-      #PEER_NUM=$(($(($RANDOM%$NUM_PEERS))+1))
+      ORG_NUM=$(($RANDOM%$NUM_ORGS))
+      PEER_NUM=$(($(($RANDOM%$NUM_PEERS))+1))
       invokeChaincode ${PORGS[$ORG_NUM]} $PEER_NUM '{"Args":["update","'$VARIABLE'","'$VALUE'","'$SIGN'"]}'
    done
    END=$(date +%s)
@@ -136,8 +137,8 @@ function testHighThroughputChaincode {
    START=$(date +%s)
    for (( i = 0; i < $MAX_TX_COUNT; ++i ))
    do
-      #ORG_NUM=$(($RANDOM%$NUM_ORGS))
-      #PEER_NUM=$(($(($RANDOM%$NUM_PEERS))+1))
+      ORG_NUM=$(($RANDOM%$NUM_ORGS))
+      PEER_NUM=$(($(($RANDOM%$NUM_PEERS))+1))
       chaincodeQuery ${PORGS[$ORG_NUM]} $PEER_NUM '{"Args":["get","'$VARIABLE'"]}' $COUNTER
    done
    END=$(date +%s)
@@ -431,7 +432,8 @@ function invokeChaincode {
    initOrdererVars ${OORGS[0]} 1
    IFS=', ' read -r -a PORGS <<< "$PEER_ORGS"
    initPeerVars $1 $2
-   switchToUserIdentity $1
+   #switchToUserIdentity $1
+   switchToAdminIdentity
    export CORE_PEER_MSPCONFIGPATH=$ORG_ADMIN_HOME/msp
    logr "Sending invoke transaction to $PEER_HOST ..."
    mkdir -p /tmp/logs

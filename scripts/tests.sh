@@ -63,18 +63,18 @@ function performanceTest {
     local MAX_ORGS=5
     local MAX_PEERS=4
 
-    export MAX_TX_COUNT=1000
+    export MAX_TX_COUNT=10
 
     mkdir -p /logs/performance
     export CURRENT_DATE=`date +%d.%m.%Y_%H:%M:%S`
     echo "num_orgs,num_peers,tx_count,invoke,queue" > /logs/performance/test_$CURRENT_DATE.csv
     while [[ "$ORG_COUNT" -le $MAX_ORGS ]]; do
+        export PEER_ORGS="org${ORG_COUNT} $PEER_ORGS"
         while [[ "$PEER_COUNT" -le $MAX_PEERS ]]; do
             export NUM_ORGS=$ORG_COUNT
             export NUM_PEERS=$PEER_COUNT
             export RANDOM_NUMBER="${NUM_ORGS}orgs${NUM_PEERS}peers"
             mkdir -p /private/crypto${RANDOM_NUMBER}
-            export PEER_ORGS="org${ORG_COUNT} $PEER_ORGS"
             ./run-fabric.sh updateSytemChannelConfig "org${ORG_COUNT}"
             ./run-fabric.sh testChannel
             ##./run-fabric.sh updateChannelConfig $CENTRAL 1 "org${ORG_COUNT}"
