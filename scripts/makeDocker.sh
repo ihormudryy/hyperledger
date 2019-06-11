@@ -156,7 +156,7 @@ function writeBlockchainExplorerService {
          \"$NETWORK\": {
             \"version\": \"1.0\",
             \"clients\": {" > ${DOCKER_DIR}/config.json
-   
+
    FIRST=true
    for ORG in $ORGS; do
       if [ $FIRST != true ]; then
@@ -221,7 +221,7 @@ function writeBlockchainExplorerService {
          },
          \"signedCert\": {
             \"path\": \"/${COMMON}/orgs/${ORDERER_ORGS}/admin/msp/signcerts\"
-         }  
+         }
       }," >> ${DOCKER_DIR}/config.json
    FIRST=true
    for ORG in $PEER_ORGS; do
@@ -289,7 +289,8 @@ function writeSetupFabric {
       - ${LOGS_DIR}:/logs
       - ${SAMPLES_DIR}:/opt/gopath/src/github.com/hyperledger/fabric-samples
       - ${COMMON}:/${COMMON}
-      - ../httpWrapper/api:/opt/wrapper/api
+      - ../httpWrapper:/opt/wrapper
+      - ../storage:/storage
     environment:
       - PEER_HOME=$MYHOME
       - ORDERER_HOME=$MYHOME
@@ -321,7 +322,7 @@ function writeStartFabric {
 }
 
 function writeHyperledgerComposer {
-   echo "  
+   echo "
   hyperledger-composer:
     container_name: blockchain-composer
     image: hyperledger/composer-playground
@@ -329,7 +330,7 @@ function writeHyperledgerComposer {
       - 8080:8080
     networks:
       - $NETWORK"
-} 
+}
 
 function writeBlockchainExplorer {
    echo "  blockchain-explorer-db:
@@ -595,7 +596,7 @@ echo "
 function writeHeader {
 echo "#File was generated automatically on $(date) by makeDocker.sh. Do not edit.
 version: '3.7'
-   
+
 networks:
   $NETWORK:
     ipam:

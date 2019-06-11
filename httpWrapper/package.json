@@ -7,16 +7,20 @@
   },
   "dependencies": {
     "adm-zip": "^0.4.13",
-    "archiver": "^3.0.0",
     "cookie-parser": "~1.4.3",
     "debug": "~2.6.9",
     "express": "~4.16.0",
+    "express-fileupload": "^1.1.5",
     "morgan": "~1.9.0",
+    "swagger": "^0.7.5",
+    "swagger-express-mw": "^0.7.0",
+    "swagger-tools": "^0.10.4",
     "swagger-ui-express": "^4.0.3"
   },
   "devDependencies": {
-    "nodemon": "^1.18.11",
-    "swagger": "^0.7.5",
-    "swagger-express-mw": "^0.7.0"
+    "eslint": "^5.16.0",
+    "eslint-config-airbnb-base": "^13.1.0",
+    "eslint-plugin-import": "^2.17.3",
+    "nodemon": "^1.18.11"
   }
 }

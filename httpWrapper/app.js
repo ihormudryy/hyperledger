@@ -1,23 +1,25 @@
 const express = require('express');
 const cookieParser = require('cookie-parser');
+const fileUpload = require('express-fileupload');
 const logger = require('morgan');
 const SwaggerExpress = require('swagger-express-mw');
 const SwaggerUi = require('swagger-tools/middleware/swagger-ui');
 
 const app = express();
 
-module.exports = new Promise(function (resolve, reject) {
-
+module.exports = new Promise(((resolve, reject) => {
   const config = {
     appRoot: __dirname,
     swaggerFile: 'api/swagger/swagger.json'
   };
 
-  SwaggerExpress.create(config, function (err, swaggerExpress) {
-    if (err) { throw err; }
+  SwaggerExpress.create(config, (error, swaggerExpress) => {
+    if (error) {
+      reject(error);
+    }
 
-    // install middleware
     app.use(logger('dev'));
+    app.use(fileUpload({}));
     app.use(express.json());
     app.use(express.urlencoded({ extended: false }));
     app.use(cookieParser());
@@ -25,13 +27,12 @@ module.exports = new Promise(function (resolve, reject) {
 
     swaggerExpress.register(app);
 
-    app.use(function(err, req, res, next) {
-      if (typeof err !== 'object') {
-        err = {
-          message: String(err) // Coerce to string
-        };
-      } else {
-        Object.defineProperty(err, 'message', { enumerable: true });
+    app.use((err, req, res, next) => { // eslint-disable-line no-unused-vars
+      Object.defineProperty(err, 'message', { enumerable: true });
+      if (err.errors) {
+        err.errors.forEach((val) => {
+          delete val.errors;
+        });
       }
 
       res.setHeader('Content-Type', 'application/json');
@@ -39,10 +40,10 @@ module.exports = new Promise(function (resolve, reject) {
       res.end(JSON.stringify(err));
     });
 
-    var port = process.env.PORT || 3000;
+    const port = process.env.PORT || 3000;
     app.listen(port, () => {
       console.log('listening on: ', port);
       resolve(app);
     });
   });
-});
+}));

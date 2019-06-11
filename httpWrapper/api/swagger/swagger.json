@@ -35,6 +35,14 @@
       "get": {
         "description": "Ping",
         "operationId": "ping",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "orderer",
+            "required": true,
+            "type": "string"
+          }
+        ],
         "responses": {
           "200": {
             "description": "Success",
@@ -197,6 +205,64 @@
                 }
               }
             }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/DefaultResponse"
+            }
+          }
+        }
+      }
+    },
+    "/crypto": {
+      "x-swagger-router-controller": "keyStorage",
+      "get": {
+        "description": "returnCryptoartifacts",
+        "operationId": "returnCryptoartifacts",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "token",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/DefaultResponse"
+            }
+          }
+        }
+      },
+      "post": {
+        "description": "saveCryptoartifacts",
+        "operationId": "saveCryptoartifacts",
+        "consumes": [
+          "multipart/form-data"
+        ],
+        "parameters": [
+          {
+            "in": "formData",
+            "name": "token",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "in": "formData",
+            "name": "cert",
+            "required": true,
+            "type": "file"
+          },
+          {
+            "in": "formData",
+            "name": "key",
+            "required": true,
+            "type": "file"
           }
         ],
         "responses": {
